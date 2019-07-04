@@ -5,19 +5,18 @@ import torch.nn as nn
 from collections import namedtuple
 
 # Can be simply regarded as a object, called "Batch", having attributes "input" and "target"
-Batch = namedtuple('Batch', 'input target')
+Batch = namedtuple('Batch', 'input target idx_to_tag')
 
 class Dataset(): 
 
-    def __init__(self, train_file=None, test_file=None, word_to_idx=None, tag_to_idx=None, split=0.9):
-        # word_to_idx/tag_to_idx: both are functions, whose input is a string and output an int
+    def __init__(self, train_file=None, test_file=None, word_to_idx=None, split=0.9):
+        # word_to_idx: function, whose input is a string and output an int
 
         self.train_file = train_file
         self.dev_file = 'dev'
         self.test_file = test_file
 
         self.word_to_idx = word_to_idx
-        self.tag_to_idx = tag_to_idx
         
         train_dev_samples = 0
         for _ in self.samples(train_file, begin_idx=0, end_idx=-1):
@@ -48,6 +47,14 @@ class Dataset():
         # return: 1-d long tensor of shape (seq_len)
         return torch.LongTensor([self.word_to_idx(w) for w in ws])
     
+    def tag_to_idx(self, tag):
+        t2i = {'O':0, 'B-PER': 1, 'I-PER': 2, 'B-LOC': 3, 'I-LOC': 4, 'B-ORG': 5, 'I-ORG': 6}
+        return t2i[tag]
+
+    def idx_to_tag(self, i):
+        i2t = ['O', 'B-PER', 'I-PER', 'B-LOC', 'I-LOC', 'B-ORG', 'I-ORG']
+        return i2t[i]
+
     def tags_to_tensor(self, ts):
         return torch.LongTensor([self.tag_to_idx(t) for t in ts])
 
@@ -106,12 +113,12 @@ class Dataset():
             cnt += 1
 
             if cnt >= batch_size:
-                yield Batch(input=self.pad_sequence(words_batch), target=self.pad_sequence(tags_batch))
+                yield Batch(input=self.pad_sequence(words_batch), target=self.pad_sequence(tags_batch), idx_to_tag=self.idx_to_tag)
                 words_batch, tags_batch = [], []
                 cnt = 0
 
         if cnt > 0 and not drop_last:
-            yield Batch(input=self.pad_sequence(words_batch), target=self.pad_sequence(tags_batch))
+            yield Batch(input=self.pad_sequence(words_batch), target=self.pad_sequence(tags_batch), idx_to_tag=self.idx_to_tag)
 
 
 
@@ -125,18 +132,14 @@ if __name__ == '__main__':
         w2i = {'当': 1, '希': 2}
         return w2i.get(w, 0)
 
-    def tag_to_idx(tag):
-        t2i = {'O':0, 'B-PER': 1, 'I-PER': 2, 'B-LOC': 3, 'I-LOC': 4, 'B-ORG': 5, 'I-ORG': 6}
-        return t2i[tag]
-
-    dataset = Dataset(train_file=train_file, test_file=test_file, word_to_idx=word_to_idx, tag_to_idx=tag_to_idx, split=0.9)
+    dataset = Dataset(train_file=train_file, test_file=test_file, word_to_idx=word_to_idx, split=0.9)
 
     print (f'trainset: {dataset.num_train_samples}')
     print (f'devset: {dataset.num_dev_samples}')
     print (f'testset: {dataset.num_test_samples}')
 
     cnt = 0
-    for words_batch, tags_batch in dataset.trainset(batch_size=10, drop_last=False):
+    for words_batch, tags_batch, idx_to_tag in dataset.trainset(batch_size=10, drop_last=False):
         # words_batch/tags_batch: (batch_size, seq_len)
         # print (f'words_batch: {words_batch}')
         # print (f'tags_batch: {tags_batch}')
@@ -146,7 +149,7 @@ if __name__ == '__main__':
     print (f'trainset: {cnt}')
     
     cnt = 0
-    for words_batch, tags_batch in dataset.devset(batch_size=10, drop_last=False):
+    for words_batch, tags_batch, idx_to_tag in dataset.devset(batch_size=10, drop_last=False):
         # words_batch/tags_batch: (batch_size, seq_len)
         # print (f'words_batch: {words_batch}')
         # print (f'tags_batch: {tags_batch}')
@@ -156,7 +159,7 @@ if __name__ == '__main__':
     print (f'trainset: {cnt}')
 
     cnt = 0
-    for words_batch, tags_batch in dataset.testset(batch_size=10, drop_last=False):
+    for words_batch, tags_batch, idx_to_tag in dataset.testset(batch_size=10, drop_last=False):
         # words_batch/tags_batch: (batch_size, seq_len)
         # print (f'words_batch: {words_batch}')
         # print (f'tags_batch: {tags_batch}')

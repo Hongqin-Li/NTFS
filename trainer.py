@@ -61,7 +61,7 @@ class Trainer():
 
 
             self.model.eval()
-            score += self.metrics(model, self.dataset.devset(batch_size=batch_size))
+            score = self.metrics(model, self.dataset.devset(batch_size=batch_size))
 
             print (f'Epoch: {self.num_trained_samples // self.dataset.num_train_samples}, score: {score}')
 
