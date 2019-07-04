@@ -1,10 +1,9 @@
-import json
+﻿import pandas as pd
 import torch
 import torch.nn as nn
 
-class Dataset(): 
-
-    def __init__(self, train_file, dev_file, test_file, word_to_idx, tag_to_idx):
+class Dataset():
+    def __init__(self, train_file, dev_file, test_file, word_to_idx):
         # word_to_idx/tag_to_idx: both are functions, whose input is a string and output an int
 
         self.train_file = train_file
@@ -12,7 +11,6 @@ class Dataset():
         self.test_file = test_file
 
         self.word_to_idx = word_to_idx
-        self.tag_to_idx = tag_to_idx
 
         self.num_train_samples = 0
         for batch in self.trainset(batch_size=1000):
@@ -26,14 +24,11 @@ class Dataset():
         for batch in self.testset(batch_size=1000):
             self.num_test_samples += batch[0].shape[0]
 
+
     def trainset(self, batch_size=1, drop_last=False):
         for batch in self.sample_batches(self.train_file, batch_size=batch_size, drop_last=drop_last):
             yield batch
-            
-    def trainset(self, batch_size=1, drop_last=False):
-        for batch in self.sample_batches(self.train_file, batch_size=batch_size, drop_last=drop_last):
-            yield batch
-            
+
     def devset(self, batch_size=1, drop_last=False):
         for batch in self.sample_batches(self.dev_file, batch_size=batch_size, drop_last=drop_last):
             yield batch
@@ -43,7 +38,7 @@ class Dataset():
             yield batch
 
     def sentence_to_tensor(self, s):
-        # s: string or list
+        # s: string 
         # return: 1-d long tensor of shape (seq_len)
         return torch.LongTensor([self.word_to_idx(w) for w in s])
 
@@ -53,36 +48,12 @@ class Dataset():
 
     def samples(self, file_path):
 
-        with open(file_path, 'r') as f:
+        df = pd.read_csv(file_path, encoding='utf-8')
 
-            labels = f.readline().strip().split('\t') # Omit tsv header
+        for line in df.values:
+            sent1, sent2, label = line
+            yield sent1, sent2, label
 
-            is_train = file_path == self.train_file
-
-            for line in f:
-                line = line.strip().split('\t')
-
-                # Since the trainset is different from devset and testset
-                if is_train:
-                    sent1 = line[labels.index('premise')]
-                    sent2 = line[labels.index('hypo')]
-                    tag = line[labels.index('label')]
-
-                else: 
-                    language = line[labels.index('language')]
-                    if language != 'zh': continue
-                    sent1 = line[labels.index('sentence1')]
-                    sent2 = line[labels.index('sentence2')]
-                    tag = line[labels.index('gold_label')]
-
-                # sent1, sent2, tag = ''.join(sent1.split()), ''.join(sent2.split()), tag
-                # print (sent1, sent2, tag)
-                # input ()
-                yield ''.join(sent1.split()), ''.join(sent2.split()), tag
-                
-
-
-   
     def sample_batches(self, file_path, batch_size=1, drop_last=False):
         # drop_last: drop the last incomplete batch if True
         cnt = 0
@@ -93,11 +64,10 @@ class Dataset():
         tag_batch = [] # (batch_size)
 
         for sent1, sent2, tag in self.samples(file_path):
-            # all string-like
 
             sent1_batch.append(self.sentence_to_tensor(sent1))
             sent2_batch.append(self.sentence_to_tensor(sent2))
-            tag_batch.append(self.tag_to_idx(tag))
+            tag_batch.append(int(tag))
 
             cnt += 1
 
@@ -105,28 +75,21 @@ class Dataset():
                 yield self.pad_sequence(sent1_batch), self.pad_sequence(sent2_batch), torch.LongTensor(tag_batch)
                 sent1_batch, sent2_batch, tag_batch = [], [], []
                 cnt = 0
-
+    
         if cnt > 0 and not drop_last:
             yield self.pad_sequence(sent1_batch), self.pad_sequence(sent2_batch), torch.LongTensor(tag_batch)
 
-
-
-
-if __name__ == '__main__': 
+if __name__ == '__main__':
     # Usage
-    train_file = 'XNLI-MT-1.0/multinli/multinli.train.zh.tsv'
-    dev_file = 'XNLI-1.0/xnli.dev.tsv'
-    test_file = 'XNLI-1.0/xnli.test.tsv'
+    train_file = 'train.csv'
+    dev_file = 'dev.csv'
+    test_file = 'test.csv'
 
     def word_to_idx(w):
         w2i = {'当': 1, '希': 2}
         return w2i.get(w, 0)
 
-    def tag_to_idx(tag):
-        t2i = {'neutral':0, 'entailment': 1, 'contradictory': 2, 'contradiction': 2}
-        return t2i[tag]
-
-    dataset = Dataset(train_file=train_file, dev_file=dev_file, test_file=test_file, word_to_idx=word_to_idx, tag_to_idx=tag_to_idx)
+    dataset = Dataset(train_file=train_file, dev_file=dev_file, test_file=test_file, word_to_idx=word_to_idx)
 
     print (f'trainset: {dataset.num_train_samples}')
     print (f'devset: {dataset.num_dev_samples}')
@@ -134,21 +97,16 @@ if __name__ == '__main__':
 
     cnt = 0
     for sent1_batch, sent2_batch, tag_batch in dataset.trainset(batch_size=10, drop_last=False):
-        # print (f'sent1_batch: {sent1_batch.shape}, sent2_batch: {sent2_batch.shape}, tag_batch: {tag_batch.shape}')
-        # input ()
         cnt += sent1_batch.shape[0]
     print (f'trainset: {cnt}')
-    
+
     cnt = 0
     for sent1_batch, sent2_batch, tag_batch in dataset.devset(batch_size=10, drop_last=False):
-        # print (f'sent1_batch: {sent1_batch.shape}, sent2_batch: {sent2_batch.shape}, tag_batch: {tag_batch.shape}')
-        # input ()
         cnt += sent1_batch.shape[0]
     print (f'devset: {cnt}')
 
     cnt = 0
     for sent1_batch, sent2_batch, tag_batch in dataset.testset(batch_size=10, drop_last=False):
-        # print (f'sent1_batch: {sent1_batch.shape}, sent2_batch: {sent2_batch.shape}, tag_batch: {tag_batch.shape}')
-        # input ()
         cnt += sent1_batch.shape[0]
     print (f'testset: {cnt}')
+    

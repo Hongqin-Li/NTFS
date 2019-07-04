@@ -14,6 +14,18 @@ class Dataset():
         self.word_to_idx = word_to_idx
         self.tag_to_idx = tag_to_idx
 
+        self.num_train_samples = 0
+        for batch in self.trainset(batch_size=1000):
+            self.num_train_samples += batch[0].shape[0]
+
+        self.num_dev_samples = 0
+        for batch in self.devset(batch_size=1000):
+            self.num_dev_samples += batch[0].shape[0]
+
+        self.num_test_samples = 0
+        for batch in self.testset(batch_size=1000):
+            self.num_test_samples += batch[0].shape[0]
+
     def trainset(self, batch_size=1, drop_last=False):
         for batch in self.sample_batches(self.train_file, batch_size=batch_size, drop_last=drop_last):
             yield batch
@@ -87,6 +99,10 @@ if __name__ == '__main__':
         return t2i[t]
 
     dataset = Dataset(train_file=train_file, dev_file=dev_file, test_file=test_file, word_to_idx=word_to_idx, tag_to_idx=tag_to_idx)
+
+    print (f'trainset: {dataset.num_train_samples}')
+    print (f'devset: {dataset.num_dev_samples}')
+    print (f'testset: {dataset.num_test_samples}')
 
     cnt = 0
     for sent_batch, tag_batch in dataset.trainset(batch_size=10, drop_last=False):

@@ -19,6 +19,12 @@ class Dataset():
             train_dev_samples += 1
 
         self.num_train_samples = int(train_dev_samples * split)
+        self.num_dev_samples = train_dev_samples - self.num_train_samples
+
+        self.num_test_samples = 0
+        for batch in self.testset(batch_size=1000):
+            self.num_test_samples += batch[0].shape[0]
+            
 
     def trainset(self, batch_size=1, drop_last=False):
         for batch in self.sample_batches(self.train_file, batch_size=batch_size, drop_last=drop_last):
@@ -119,6 +125,10 @@ if __name__ == '__main__':
         return t2i[tag]
 
     dataset = Dataset(train_file=train_file, test_file=test_file, word_to_idx=word_to_idx, tag_to_idx=tag_to_idx, split=0.9)
+
+    print (f'trainset: {dataset.num_train_samples}')
+    print (f'devset: {dataset.num_dev_samples}')
+    print (f'testset: {dataset.num_test_samples}')
 
     cnt = 0
     for words_batch, tags_batch in dataset.trainset(batch_size=10, drop_last=False):

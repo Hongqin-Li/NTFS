@@ -2,16 +2,28 @@ import json
 import torch
 import torch.nn as nn
 
+
 class Dataset(): 
 
-    def __init__(self, train_file, dev_file, test_file, vocab):
-        # vocab: dict-like, map word to idx, e.g. vocab['a'] = 1
+    def __init__(self, train_file, dev_file, test_file, word_to_idx):
 
         self.train_file = train_file
         self.dev_file = dev_file
         self.test_file = test_file
 
-        self.vocab = vocab
+        self.word_to_idx = word_to_idx
+
+        self.num_train_samples = 0
+        for batch in self.trainset(batch_size=1000):
+            self.num_train_samples += batch[0].shape[0]
+
+        self.num_dev_samples = 0
+        for batch in self.devset(batch_size=1000):
+            self.num_dev_samples += batch[0].shape[0]
+
+        self.num_test_samples = 0
+        for batch in self.testset(batch_size=1000):
+            self.num_test_samples += batch[0].shape[0]
 
     def trainset(self, batch_size=1, drop_last=False):
         for batch in self.sample_batches(self.train_file, batch_size=batch_size, drop_last=drop_last):
@@ -30,10 +42,7 @@ class Dataset():
         # return: 1-d long tensor of shape (seq_len)
 
         # TODO prune long str
-        # OOV is of index 0
-        # FIXME
-        return torch.LongTensor([self.vocab.get(c, 0) for c in s])
-        # return torch.LongTensor([self.vocab[c] for c in s])
+        return torch.LongTensor([self.word_to_idx(c) for c in s])
     
     def pad_sequence(self, s):
         # TODO pad to 512?
@@ -109,10 +118,16 @@ if __name__ == '__main__':
     dev_file = 'cmrc2018/squad-style-data/cmrc2018_dev.json'
     test_file = 'cmrc2018/squad-style-data/cmrc2018_trial.json'
 
-    # maps word to index, 0 for OOV, e.g. vocab['a'] = 1
-    vocab = {}
+    # maps word to index, 0 for OOV, e.g. word_to_idx('a') = 1
+    def word_to_idx(w):
+        w2i = {'a': 1}
+        return w2i.get(w, 0)
 
-    dataset = Dataset(train_file=train_file, dev_file=dev_file, test_file=test_file, vocab=vocab)
+    dataset = Dataset(train_file=train_file, dev_file=dev_file, test_file=test_file, word_to_idx=word_to_idx)
+
+    print (f'trainset: {dataset.num_train_samples}')
+    print (f'devset: {dataset.num_dev_samples}')
+    print (f'testset: {dataset.num_test_samples}')
 
     cnt = 0
     for doc, quest, start_idx, end_idx in dataset.trainset(batch_size=100, drop_last=False):
