@@ -2,6 +2,11 @@ import json
 import torch
 import torch.nn as nn
 
+from collections import namedtuple
+
+# Can be simply regarded as a object, called "Batch", having attributes "input" and "target"
+Batch = namedtuple('Batch', 'input target')
+
 class Dataset(): 
 
     def __init__(self, train_file, dev_file, test_file, word_to_idx, tag_to_idx):
@@ -90,14 +95,12 @@ class Dataset():
             cnt += 1
 
             if cnt >= batch_size:
-                yield self.pad_sequence(words_batch), self.pad_sequence(tags_batch)
+                yield Batch(input=self.pad_sequence(words_batch), target=self.pad_sequence(tags_batch))
                 words_batch, tags_batch = [], []
                 cnt = 0
 
         if cnt > 0 and not drop_last:
-            yield self.pad_sequence(words_batch), self.pad_sequence(tags_batch)
-
-
+            yield Batch(input=self.pad_sequence(words_batch), target=self.pad_sequence(tags_batch))
 
 
 if __name__ == '__main__': 

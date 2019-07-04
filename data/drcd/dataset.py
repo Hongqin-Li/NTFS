@@ -2,6 +2,10 @@ import json
 import torch
 import torch.nn as nn
 
+from collections import namedtuple
+# Can be simply regarded as a object, called "Batch", having attributes "input" and "target"
+Batch = namedtuple('Batch', 'input target raw_documents')
+
 class Dataset(): 
 
     def __init__(self, train_file, dev_file, test_file, word_to_idx):
@@ -14,16 +18,15 @@ class Dataset():
 
         self.num_train_samples = 0
         for batch in self.trainset(batch_size=1000):
-            self.num_train_samples += batch[0].shape[0]
+            self.num_train_samples += batch.input[0].shape[0]
 
         self.num_dev_samples = 0
         for batch in self.devset(batch_size=1000):
-            self.num_dev_samples += batch[0].shape[0]
+            self.num_dev_samples += batch.input[0].shape[0]
 
         self.num_test_samples = 0
         for batch in self.testset(batch_size=1000):
-            self.num_test_samples += batch[0].shape[0]
-
+            self.num_test_samples += batch.input[0].shape[0]
 
     def trainset(self, batch_size=1, drop_last=False):
         for batch in self.sample_batches(self.train_file, batch_size=batch_size, drop_last=drop_last):
@@ -93,9 +96,13 @@ class Dataset():
         start_idxs = [] # (batch_size)
         end_idxs = [] # (batch_size)
 
+        # Raw documents
+        raw_docs = [] # List of string: [doc_{1}, ..., doc_{i}, ..., doc_{batch_size}]
+
         for doc, q, si, ei in self.samples(file_path):
             # all tensor-like
 
+            raw_docs.append(doc)
             docs.append(self.str_to_tensor(doc))
             quests.append(self.str_to_tensor(q))
             start_idxs.append(torch.LongTensor([si]))
@@ -104,13 +111,18 @@ class Dataset():
             cnt += 1
 
             if cnt >= batch_size:
-                yield self.pad_sequence(docs), self.pad_sequence(quests), torch.cat(start_idxs), torch.cat(end_idxs)
+
+                yield Batch(    input=(self.pad_sequence(docs), self.pad_sequence(quests)), 
+                                target=(torch.cat(start_idxs), torch.cat(end_idxs)), 
+                                raw_documents=raw_docs                                      )
+
                 docs, quests, start_idxs, end_idxs = [], [], [], []
                 cnt = 0
 
         if cnt > 0 and not drop_last:
-            yield self.pad_sequence(docs), self.pad_sequence(quests), torch.cat(start_idxs), torch.cat(end_idxs)
-
+            yield Batch(    input=(self.pad_sequence(docs), self.pad_sequence(quests)), 
+                            target=(torch.cat(start_idxs), torch.cat(end_idxs)), 
+                            raw_documents=raw_docs                                      )
 
 if __name__ == '__main__': 
     # Usage
@@ -130,7 +142,7 @@ if __name__ == '__main__':
     print (f'testset: {dataset.num_test_samples}')
 
     cnt = 0
-    for doc, quest, start_idx, end_idx in dataset.trainset(batch_size=100, drop_last=False):
+    for (doc, quest), (start_idx, end_idx), raw_docs in dataset.trainset(batch_size=100, drop_last=False):
         # print (f'doc: {doc.shape}, quest: {quest.shape}, start_idx: {start_idx.shape}, end_idx: {end_idx.shape}')
         # print (quest)
         # input ()
@@ -140,7 +152,7 @@ if __name__ == '__main__':
     
 
     cnt = 0
-    for doc, quest, start_idx, end_idx in dataset.devset(batch_size=100, drop_last=False):
+    for (doc, quest), (start_idx, end_idx), raw_docs in dataset.devset(batch_size=100, drop_last=False):
         # print (f'doc: {doc.shape}, quest: {quest.shape}, start_idx: {start_idx.shape}, end_idx: {end_idx.shape}')
         # print (quest)
         # input ()
@@ -149,7 +161,7 @@ if __name__ == '__main__':
     print (f'devset: {cnt}')
 
     cnt = 0
-    for doc, quest, start_idx, end_idx in dataset.testset(batch_size=100, drop_last=False):
+    for (doc, quest), (start_idx, end_idx), raw_docs in dataset.testset(batch_size=100, drop_last=False):
         # print (f'doc: {doc.shape}, quest: {quest.shape}, start_idx: {start_idx.shape}, end_idx: {end_idx.shape}')
         # print (quest)
         # input ()

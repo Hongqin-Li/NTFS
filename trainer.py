@@ -1,12 +1,5 @@
 import torch 
 
-import ... as model
-
-model = model(....)
-
-
-t = trainer(model=model)
-
 class Trainer():
 
     def __init__(self, model, optimizer, criterion, metrics, dataset, save_path):
@@ -66,18 +59,15 @@ class Trainer():
 
                 print (f'idx: {cnt}, loss: {loss}')
 
-            score = 0
 
             self.model.eval()
-            for batch in self.dataset.devset(batch_size=batch_size):
-                score += self.metrics(self.model(batch.input), batch.target)
+            score += self.metrics(model, self.dataset.devset(batch_size=batch_size))
 
-            score /=  len(self.dataset.devset)
-            print (f'Epoch: {self.num_trained_samples // cnt}, score: {score}')
+            print (f'Epoch: {self.num_trained_samples // self.dataset.num_train_samples}, score: {score}')
 
             if score > self.best_score:
                 self.best_score = score
-                self.num_trained_samples += len(self.dataset.trainset)
+                self.num_trained_samples += self.dataset.num_train_samples
                 self.save_checkpoint()
                
             # TODO still train for several epochs to find a better model
@@ -85,8 +75,9 @@ class Trainer():
                 print ('Terminate!')
                 return 
 
-            
-            
-            
+
+
+if __name__ == '__main__':
        
+    pass
 

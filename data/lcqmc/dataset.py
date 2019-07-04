@@ -1,6 +1,11 @@
 ﻿import torch
 import torch.nn as nn
 
+from collections import namedtuple
+
+# Can be simply regarded as a object, called "Batch", having attributes "input" and "target"
+Batch = namedtuple('Batch', 'input target')
+
 class Dataset():
     def __init__(self, train_file, dev_file, test_file, word_to_idx):
         # word_to_idx/tag_to_idx: both are functions, whose input is a string and output an int
@@ -13,15 +18,15 @@ class Dataset():
 
         self.num_train_samples = 0
         for batch in self.trainset(batch_size=1000):
-            self.num_train_samples += batch[0].shape[0]
+            self.num_train_samples += batch.target.shape[0]
 
         self.num_dev_samples = 0
         for batch in self.devset(batch_size=1000):
-            self.num_dev_samples += batch[0].shape[0]
+            self.num_dev_samples += batch.target.shape[0]
 
         self.num_test_samples = 0
         for batch in self.testset(batch_size=1000):
-            self.num_test_samples += batch[0].shape[0]
+            self.num_test_samples += batch.target.shape[0]
 
 
     def trainset(self, batch_size=1, drop_last=False):
@@ -69,12 +74,12 @@ class Dataset():
             cnt += 1
 
             if cnt >= batch_size:
-                yield self.pad_sequence(sent1_batch), self.pad_sequence(sent2_batch), torch.LongTensor(tag_batch)
+                yield Batch(input=(self.pad_sequence(sent1_batch), self.pad_sequence(sent2_batch)), target=torch.LongTensor(tag_batch))
                 sent1_batch, sent2_batch, tag_batch = [], [], []
                 cnt = 0
     
         if cnt > 0 and not drop_last:
-            yield self.pad_sequence(sent1_batch), self.pad_sequence(sent2_batch), torch.LongTensor(tag_batch)
+            yield Batch(input=(self.pad_sequence(sent1_batch), self.pad_sequence(sent2_batch)), target=torch.LongTensor(tag_batch))
 
 if __name__ == '__main__':
     # Usage
@@ -93,17 +98,17 @@ if __name__ == '__main__':
     print (f'testset: {dataset.num_test_samples}')
 
     cnt = 0
-    for sent1_batch, sent2_batch, tag_batch in dataset.trainset(batch_size=10, drop_last=False):
+    for (sent1_batch, sent2_batch), tag_batch in dataset.trainset(batch_size=10, drop_last=False):
         cnt += sent1_batch.shape[0]
     print (f'trainset: {cnt}')
 
     cnt = 0
-    for sent1_batch, sent2_batch, tag_batch in dataset.devset(batch_size=10, drop_last=False):
+    for (sent1_batch, sent2_batch), tag_batch in dataset.devset(batch_size=10, drop_last=False):
         cnt += sent1_batch.shape[0]
     print (f'devset: {cnt}')
 
     cnt = 0
-    for sent1_batch, sent2_batch, tag_batch in dataset.testset(batch_size=10, drop_last=False):
+    for (sent1_batch, sent2_batch), tag_batch in dataset.testset(batch_size=10, drop_last=False):
         cnt += sent1_batch.shape[0]
     print (f'testset: {cnt}')
     
