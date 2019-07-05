@@ -123,7 +123,7 @@ def f1_score(pred_tags, true_tags):
     return 2 * precision * recall / (precision + recall) if precision + recall > 0 else 0
 
 
-def sequence_labeling_precision_score(model, dataset):
+def ner_precision_score(model, dataset):
 
     score, total = 0, 0
     for batch in dataset:
@@ -143,7 +143,7 @@ def sequence_labeling_precision_score(model, dataset):
     return score / total
 
 # Similar to above
-def sequence_labeling_recall_score(model, dataset):
+def ner_recall_score(model, dataset):
     score, total = 0, 0
     for batch in dataset:
         pred = model(batch.input)
@@ -155,7 +155,7 @@ def sequence_labeling_recall_score(model, dataset):
     return score / total
 
 # Similar to above
-def sequence_labeling_f1_score(model, dataset):
+def ner_f1_score(model, dataset):
     score, total = 0, 0
     for batch in dataset:
         pred = model(batch.input)

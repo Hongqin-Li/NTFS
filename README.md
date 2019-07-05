@@ -21,10 +21,9 @@
 - NLI: 
   - [x] [XNLI](https://github.com/facebookresearch/XNLI): testset size not matched, mine is 5k, but the paper only get 2.5k
 - SC: , two-class sentence classification, remove stopwords?
-  - [x] [ChnSentiCorp](https://github.com/pengming617/bert_classification/)
-  - [x] [Sina Weibo](https://github.com/SophonPlus/ChineseNlpCorpus/)
+  - [x] [ChnSentiCorp](https://github.com/pengming617/bert_classification/), [Sina Weibo](https://github.com/SophonPlus/ChineseNlpCorpus/)
 - SPM: 
 
-  - [ ] [LCQMC](http://icrc.hitsz.edu.cn/info/1037/1146.htm), [BQ Corpus](http://icrc.hitsz.edu.cn/info/1037/1162.htm): need to apply
+  - [x] [LCQMC](http://icrc.hitsz.edu.cn/info/1037/1146.htm), [BQ Corpus](http://icrc.hitsz.edu.cn/info/1037/1162.htm)
 - DC: ten-class classification, remove stopwords?
   - [x] [THUCNews](https://github.com/gaussic/text-classification-cnn-rnn)
