@@ -200,11 +200,12 @@ if __name__ == '__main__':
 
     model = Bert(vocab_size=1000, token_type_vocab_size=2, max_seq_len=10, hidden_size=8, num_layers=1, num_heads=2)
 
+    # See the sample above
     token_idxs = torch.LongTensor([[100, 1, 2, 101, 3, 4, 101]])
     position_idxs = torch.LongTensor([[ 0 ,  1 ,  2 ,  3 ,  4 ,  5 ,  6 ]])
-    segment_idxs = torch.LongTensor([[ 0 ,  0 ,  0 ,  0 ,  1 ,  1 ,  1 ]])
+    token_type_idxs = torch.LongTensor([[ 0 ,  0 ,  0 ,  0 ,  1 ,  1 ,  1 ]])
     
-    out = model(token_idxs, position_idxs, segment_idxs)
+    out = model(token_idxs, position_idxs, token_type_idxs)
 
     print (out.shape)
     
