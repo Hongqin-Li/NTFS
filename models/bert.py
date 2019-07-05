@@ -1,9 +1,65 @@
 import copy
 import math
+import json
+
+import numpy as np
+import tensorflow as tf
 
 import torch 
 import torch.nn as nn
 import torch.nn.functional as F
+
+def gelu(x):
+    '''https://arxiv.org/abs/1606.08415'''
+    cdf = 0.5 * (1.0 + torch.tanh((np.sqrt(2 / np.pi) * (x + 0.044715 * torch.pow(x, 3)))))
+    return x * cdf
+
+def linear(x):
+    return x
+
+def get_activation(act):
+    if act == 'linear': return linear
+    elif act == 'relu': return F.relu
+    elif act == 'gelu': return gelu
+    elif act == 'tanh': return F.relu
+    else:
+        print (f'Error: Activation not supported: {act}')
+
+class BertConfig(object):
+    """Configuration for `BertModel`."""
+    def __init__(self,
+                vocab_size=1,
+                hidden_size=768,
+                num_hidden_layers=12,
+                num_attention_heads=12,
+                intermediate_size=3072,
+                hidden_act="gelu",
+                hidden_dropout_prob=0.1,
+                attention_probs_dropout_prob=0.1,
+                max_position_embeddings=512,
+                type_vocab_size=16,
+                initializer_range=0.02):
+
+        self.vocab_size = vocab_size
+        self.type_vocab_size = type_vocab_size
+        self.max_position_embeddings = max_position_embeddings
+
+        self.hidden_size = hidden_size
+        self.num_hidden_layers = num_hidden_layers
+        self.num_attention_heads = num_attention_heads
+        self.hidden_act = hidden_act
+        self.intermediate_size = intermediate_size
+        self.hidden_dropout_prob = hidden_dropout_prob
+        self.attention_dropout = attention_probs_dropout_prob
+        self.initializer_range = initializer_range
+
+        print ('Warning: dropout and activation functions should be manually set')
+
+    def from_json_file(self, path):
+        with open(path, 'r') as f:
+            cfg = json.load(f)
+            for key, value in cfg.items():
+                setattr(self, key, value)
 
 def clones(module, N):
     "Produce N identical layers"
@@ -52,7 +108,11 @@ class MultiheadAttention(nn.Module):
         self.num_heads = num_heads
 
         self.dropout = nn.Dropout(p=dropout)
-        self.linears = clones(nn.Linear(embedding_dim, embedding_dim), 4)
+        # self.linears = clones(nn.Linear(embedding_dim, embedding_dim), 4)
+        self.linear_q = nn.Linear(embedding_dim, embedding_dim)
+        self.linear_k = nn.Linear(embedding_dim, embedding_dim)
+        self.linear_v = nn.Linear(embedding_dim, embedding_dim)
+        self.linear_out = nn.Linear(embedding_dim, embedding_dim)
         # self.linears[0:3] are weight for query, key and valu, i.e. WQ, WK, WV in the paper
         # self.linears[3] is the output weight, i.e. WO in the paper
 
@@ -74,7 +134,7 @@ class MultiheadAttention(nn.Module):
 
         batch_size, seq_len, embedding_dim = query.shape
         
-        query, key, value = [linear(x).view(batch_size, seq_len, self.num_heads, self.hidden_size).transpose(1, 2) for linear, x in zip(self.linears[:3], (query, key, value))]
+        query, key, value = [linear(x).view(batch_size, seq_len, self.num_heads, self.hidden_size).transpose(1, 2) for linear, x in zip((self.linear_q, self.linear_k, self.linear_v), (query, key, value))]
         # view: split the last dimension (embedding_dim -> num_heads * hidden_size)
         # transpose: since the next step is feeding to attention(), the last two dimensions of whose input are seq_len and hidden_size 
         # The fancy view and transpose are used to avoid concatenation of heads(see the paper)
@@ -87,7 +147,10 @@ class MultiheadAttention(nn.Module):
         x = x.transpose(1, 2).contiguous().view(batch_size, seq_len, self.num_heads * self.hidden_size)
         # (batch_size, seq_len, num_heads * hidden_size = embedding_dim)
 
-        return self.linears[3](x)
+        x = self.linear_out(x)
+
+        return x
+        # return self.linears[3](x)
 
 # See paper "Layer Normalization"
 class LayerNorm(nn.Module):
@@ -123,32 +186,34 @@ class AddAndNorm(nn.Module):
         
 class EncoderLayer(nn.Module):
 
-    def __init__(self, hidden_size, num_heads, feed_forward_hidden_size=2048):
+    def __init__(self, hidden_size, num_heads, feed_forward_hidden_size):
         super(EncoderLayer, self).__init__()
 
-        self.add_and_norm1 = AddAndNorm(hidden_size)
-        self.add_and_norm2 = AddAndNorm(hidden_size)
+        self.add_and_norm_attention = AddAndNorm(hidden_size)
+        self.add_and_norm_feed_forward = AddAndNorm(hidden_size)
         self.multihead_attention = MultiheadAttention(hidden_size, num_heads)
-        # FIXME d_ff = 2048 in the paper maybe too large
-        self.feed_forward = nn.Sequential(  nn.Linear(hidden_size, feed_forward_hidden_size), 
-                                            nn.ReLU(), 
-                                            nn.Dropout(), 
-                                            nn.Linear(feed_forward_hidden_size, hidden_size)) 
+
+        self.linear_ff = nn.Linear(hidden_size, feed_forward_hidden_size)
+        self.linear_out = nn.Linear(feed_forward_hidden_size, hidden_size)
+        self.dropout = nn.Dropout()
 
     def forward(self, x, mask=None):
         # x: (batch_size, seq_len, hidden_size)
         # return: (batch_size, seq_len, hidden_size)
 
-        x = self.add_and_norm1(x, self.multihead_attention(x, x, x, mask))
-        x = self.add_and_norm2(x, self.feed_forward(x))
+        x = self.add_and_norm_attention(x, self.multihead_attention(x, x, x, mask))
+
+        feed_forward = self.linear_out(self.dropout(gelu(self.linear_ff(x))))
+
+        x = self.add_and_norm_feed_forward(x, feed_forward)
         return x
 
 class Encoder(nn.Module):
     '''Transformer Encoder'''
-    def __init__(self, hidden_size, num_layers, num_heads=8):
+    def __init__(self, hidden_size, num_layers, num_heads, feed_forward_hidden_size):
         super(Encoder, self).__init__()
 
-        encoder_layer = EncoderLayer(hidden_size, num_heads)
+        encoder_layer = EncoderLayer(hidden_size, num_heads, feed_forward_hidden_size)
         self.layers = clones(encoder_layer, num_layers)
 
     def forward(self, x, mask=None):
@@ -159,20 +224,86 @@ class Encoder(nn.Module):
 
 class Bert(nn.Module):
 
-    def __init__(self, vocab_size, token_type_vocab_size, max_seq_len=512, hidden_size=768, num_layers=12, num_heads=12, dropout=0.1):
+    def __init__(self, config):
         '''
         token_type_vocab_size: number of token type(e.g. 3 for [CLS], [SEP], normal word)
         '''
         super(Bert, self).__init__()
 
-        self.token_embedding = nn.Embedding(vocab_size, hidden_size)
-        self.token_type_embedding = nn.Embedding(token_type_vocab_size, hidden_size)
-        self.position_embedding = nn.Embedding(max_seq_len, hidden_size)
+        self.token_embedding = nn.Embedding(config.vocab_size, config.hidden_size)
+        self.token_type_embedding = nn.Embedding(config.type_vocab_size, config.hidden_size)
+        self.position_embedding = nn.Embedding(config.max_position_embeddings, config.hidden_size)
 
-        self.layer_norm_and_dropout = nn.Sequential(LayerNorm(hidden_size), 
-                                                    nn.Dropout(dropout))
+        self.layer_norm = LayerNorm(config.hidden_size)
+        self.layer_norm_and_dropout = nn.Sequential(self.layer_norm, nn.Dropout(config.hidden_dropout_prob))
 
-        self.encoders = Encoder(hidden_size, num_layers, num_heads)
+        self.encoders = Encoder(config.hidden_size, config.num_hidden_layers, config.num_attention_heads, config.intermediate_size)
+
+        # tanh as activation 
+        self.pooler = nn.Sequential(nn.Linear(config.hidden_size, config.hidden_size), nn.Tanh())
+
+
+    def get_parameter_dict(self):
+        # Used to load pretrained parameters from google
+
+        # TODO Check this again
+        para_map = {}
+        para_map['bert/embeddings/LayerNorm/beta'] = self.layer_norm.b
+        para_map['bert/embeddings/LayerNorm/gamma'] = self.layer_norm.g 
+
+        para_map['bert/embeddings/position_embeddings'] = self.position_embedding.weight
+        para_map['bert/embeddings/token_type_embeddings'] = self.token_type_embedding.weight
+        para_map['bert/embeddings/word_embeddings'] = self.token_embedding.weight
+
+        para_map['bert/pooler/dense/bias'] = self.pooler[0].bias
+        para_map['bert/pooler/dense/kernel'] = self.pooler[0].weight
+
+        for i, encoder_layer in enumerate(self.encoders.layers):
+            para_map[f'bert/encoder/layer_{i}/attention/self/query/bias'] = encoder_layer.multihead_attention.linear_q.bias
+            para_map[f'bert/encoder/layer_{i}/attention/self/query/kernel'] = encoder_layer.multihead_attention.linear_q.weight 
+            para_map[f'bert/encoder/layer_{i}/attention/self/key/bias'] = encoder_layer.multihead_attention.linear_k.bias
+            para_map[f'bert/encoder/layer_{i}/attention/self/key/kernel'] = encoder_layer.multihead_attention.linear_k.weight 
+            para_map[f'bert/encoder/layer_{i}/attention/self/value/bias'] = encoder_layer.multihead_attention.linear_v.bias
+            para_map[f'bert/encoder/layer_{i}/attention/self/value/kernel'] = encoder_layer.multihead_attention.linear_v.weight 
+
+            para_map[f'bert/encoder/layer_{i}/attention/output/dense/bias'] = encoder_layer.multihead_attention.linear_out.bias
+            para_map[f'bert/encoder/layer_{i}/attention/output/dense/kernel'] = encoder_layer.multihead_attention.linear_out.weight
+            para_map[f'bert/encoder/layer_{i}/attention/output/LayerNorm/beta'] = encoder_layer.add_and_norm_attention.norm.b
+            para_map[f'bert/encoder/layer_{i}/attention/output/LayerNorm/gamma'] = encoder_layer.add_and_norm_attention.norm.g
+
+            para_map[f'bert/encoder/layer_{i}/intermediate/dense/bias'] = encoder_layer.linear_ff.bias
+            para_map[f'bert/encoder/layer_{i}/intermediate/dense/kernel'] = encoder_layer.linear_ff.weight
+            para_map[f'bert/encoder/layer_{i}/output/dense/bias'] = encoder_layer.linear_out.bias
+            para_map[f'bert/encoder/layer_{i}/output/dense/kernel'] = encoder_layer.linear_out.weight
+
+            para_map[f'bert/encoder/layer_{i}/output/LayerNorm/beta'] = encoder_layer.add_and_norm_feed_forward.norm.b
+            para_map[f'bert/encoder/layer_{i}/output/LayerNorm/gamma'] = encoder_layer.add_and_norm_feed_forward.norm.g
+
+        return para_map
+
+    def load_tf_checkpoint(self, path):
+
+        names, arrays = [], []
+        parameters = self.get_parameter_dict()
+
+        for name, shape in tf.train.list_variables(path):
+
+            array = tf.train.load_variable(path, name)
+            names.append(name)
+            arrays.append(array)
+
+        for name, array in zip(names, arrays):
+            chunks = name.split('/')
+
+            if chunks[0] == 'bert':
+                # kernel is the weight of nn.Linear, whose shape is the transpose of tf (see pytorch doc for detail)
+                if chunks[-1] == 'kernel': array = np.transpose(array)
+                try:
+                    assert parameters[name].shape == array.shape
+                except:
+                    print (f'Error: Shape unmatched: {name}, expect {array.shape}, but get {parameters[name].shape}')
+                    raise
+                parameters[name].data = torch.from_numpy(array)
 
     def forward(self, token_idxs, position_idxs, token_type_idxs):
         '''
@@ -194,11 +325,28 @@ class Bert(nn.Module):
         x = self.token_embedding(token_idxs) + self.position_embedding(position_idxs) + self.token_type_embedding(token_type_idxs)
         x = self.layer_norm_and_dropout(x)
         x = self.encoders(x)
+        # (batch_size, seq_len, hidden_size)
+
+        self.sequence_output = x
+
+        first_tokens = x.narrow(dim=-2, start=0, length=1) 
+        # select at dimension -2(i.e. dim of seq_len), by range [start=0, start+length=1) (i.e. the first token CLS)] 
+        # (batch_size, hidden_size)
+
+        self.pooled_output = self.pooler(first_tokens) 
+
         return x
 
-if __name__ == '__main__':
 
-    model = Bert(vocab_size=1000, token_type_vocab_size=2, max_seq_len=10, hidden_size=8, num_layers=1, num_heads=2)
+
+if __name__ == '__main__':
+    
+    # Usage
+    config = BertConfig()
+    config.from_json_file('../../google-bert/chinese_L-12_H-768_A-12/bert_config.json')
+
+    model = Bert(config)
+    model.load_tf_checkpoint('../../google-bert/chinese_L-12_H-768_A-12/bert_model.ckpt')
 
     # See the sample above
     token_idxs = torch.LongTensor([[100, 1, 2, 101, 3, 4, 101]])

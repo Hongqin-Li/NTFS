@@ -138,6 +138,7 @@ if __name__ == '__main__':
     cnt = 0
     for (sent1_batch, sent2_batch), tag_batch in dataset.trainset(batch_size=10, drop_last=False):
         # print (f'sent1_batch: {sent1_batch.shape}, sent2_batch: {sent2_batch.shape}, tag_batch: {tag_batch.shape}')
+        
         # input ()
         cnt += sent1_batch.shape[0]
     print (f'trainset: {cnt}')
