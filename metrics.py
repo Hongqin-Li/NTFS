@@ -128,7 +128,7 @@ def ner_precision_score(model, dataset):
     score, total = 0, 0
     for batch in dataset:
 
-        pred = model(batch.input)
+        pred = model.predict(batch.input)
         # (batch_size, seq_len)
 
         for inp, target in zip(pred.tolist(), batch.target.tolist()):
@@ -146,7 +146,7 @@ def ner_precision_score(model, dataset):
 def ner_recall_score(model, dataset):
     score, total = 0, 0
     for batch in dataset:
-        pred = model(batch.input)
+        pred = model.predict(batch.input)
         for inp, target in zip(pred.tolist(), batch.target.tolist()):
             pred_tags = [batch.idx_to_tag(i) for i in inp]
             true_tags = [batch.idx_to_tag(i) for i in target]
@@ -158,7 +158,7 @@ def ner_recall_score(model, dataset):
 def ner_f1_score(model, dataset):
     score, total = 0, 0
     for batch in dataset:
-        pred = model(batch.input)
+        pred = model.predict(batch.input)
         for inp, target in zip(pred.tolist(), batch.target.tolist()):
             pred_tags = [batch.idx_to_tag(i) for i in inp]
             true_tags = [batch.idx_to_tag(i) for i in target]

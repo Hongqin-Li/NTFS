@@ -31,10 +31,10 @@ class BertForSequenceClassification(nn.Module):
         x = self.forward(inp)
         # (batch_size, num_classes)
 
-        targets = torch.argmax(F.softmax(x, dim=-1), dim=-1)
+        pred_classes = torch.argmax(F.softmax(x, dim=-1), dim=-1)
         # (batch_size)
         
-        return targets
+        return pred_classes
 
 class BertForSequenceLabeling(nn.Module):
 
@@ -63,10 +63,10 @@ class BertForSequenceLabeling(nn.Module):
         x = self.forward(inp)
         # (batch_size, seq_len, num_classes)
 
-        targets = torch.argmax(F.softmax(x, dim=-1), dim=-1)
+        pred_labels = torch.argmax(F.softmax(x, dim=-1), dim=-1)
         # (batch_size, seq_len)
         
-        return targets
+        return pred_labels
 
 class BertForQuestionAnswering(nn.Module):
 
@@ -108,11 +108,11 @@ class BertForQuestionAnswering(nn.Module):
 if __name__ == '__main__':
 
      # Usage
-    config = BertConfig(json_path='../../google-bert/chinese_L-12_H-768_A-12/bert_config.json')
+    config = BertConfig(json_path='../../bert_checkpoints/chinese-bert_chinese_wwm_L-12_H-768_A-12/bert_config.json')
 
-    model_sc = BertForSequenceClassification(num_classes=5, config=config, tf_checkpoint_path='../../google-bert/chinese_L-12_H-768_A-12/bert_model.ckpt')
-    model_sl = BertForSequenceLabeling(num_classes=5, config=config, tf_checkpoint_path='../../google-bert/chinese_L-12_H-768_A-12/bert_model.ckpt')
-    model_qa = BertForQuestionAnswering(config=config, tf_checkpoint_path='../../google-bert/chinese_L-12_H-768_A-12/bert_model.ckpt')
+    model_sc = BertForSequenceClassification(num_classes=5, config=config, tf_checkpoint_path='../../bert_checkpoints/chinese-bert_chinese_wwm_L-12_H-768_A-12/bert_model.ckpt')
+    model_sl = BertForSequenceLabeling(num_classes=5, config=config, tf_checkpoint_path='../../bert_checkpoints/chinese-bert_chinese_wwm_L-12_H-768_A-12/bert_model.ckpt')
+    model_qa = BertForQuestionAnswering(config=config, tf_checkpoint_path='../../bert_checkpoints/chinese-bert_chinese_wwm_L-12_H-768_A-12/bert_model.ckpt')
 
     token_idxs = torch.LongTensor([[100, 1, 2, 101, 3, 4, 101]])
     position_idxs = torch.LongTensor([[ 0 ,  1 ,  2 ,  3 ,  4 ,  5 ,  6 ]])

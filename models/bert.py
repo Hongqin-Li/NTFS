@@ -341,16 +341,18 @@ class BertModel(nn.Module):
                     print (f'Error: Shape unmatched: {name}, expect {array.shape}, but get {parameters[name].shape}')
                     raise
                 parameters[name].data = torch.from_numpy(array)
-
+                # print (f'Load {name}')
+            else:
+                print (f'Omit {name}')
 
 
 
 if __name__ == '__main__':
     
     # Usage
-    config = BertConfig(json_path='../../google-bert/chinese_L-12_H-768_A-12/bert_config.json')
+    config = BertConfig(json_path='../../bert_checkpoints/chinese_L-12_H-768_A-12/bert_config.json')
 
-    model = BertModel(config, tf_checkpoint_path='../../google-bert/chinese_L-12_H-768_A-12/bert_model.ckpt')
+    model = BertModel(config, tf_checkpoint_path='../../bert_checkpoints/chinese_L-12_H-768_A-12/bert_model.ckpt')
 
     # See the sample above
     token_idxs = torch.LongTensor([[100, 1, 2, 101, 3, 4, 101]])
