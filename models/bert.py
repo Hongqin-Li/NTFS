@@ -21,7 +21,7 @@ def get_activation(act):
     if act == 'linear': return linear
     elif act == 'relu': return F.relu
     elif act == 'gelu': return gelu
-    elif act == 'tanh': return F.relu
+    elif act == 'tanh': return F.tanh
     else:
         print (f'Error: Activation not supported: {act}')
 
@@ -38,7 +38,8 @@ class BertConfig(object):
                 attention_probs_dropout_prob=0.1,
                 max_position_embeddings=512,
                 type_vocab_size=16,
-                initializer_range=0.02):
+                initializer_range=0.02, 
+                json_path=None):
 
         self.vocab_size = vocab_size
         self.type_vocab_size = type_vocab_size
@@ -54,6 +55,8 @@ class BertConfig(object):
         self.initializer_range = initializer_range
 
         print ('Warning: dropout and activation functions should be manually set')
+        if json_path is not None:
+            self.from_json_file(json_path)
 
     def from_json_file(self, path):
         with open(path, 'r') as f:
@@ -222,13 +225,15 @@ class Encoder(nn.Module):
             x = layer(x, mask)
         return x
 
-class Bert(nn.Module):
+class BertModel(nn.Module):
 
-    def __init__(self, config):
+    def __init__(self, config, tf_checkpoint_path=None):
         '''
         token_type_vocab_size: number of token type(e.g. 3 for [CLS], [SEP], normal word)
         '''
-        super(Bert, self).__init__()
+        super(BertModel, self).__init__()
+        
+        self.hidden_size = config.hidden_size
 
         self.token_embedding = nn.Embedding(config.vocab_size, config.hidden_size)
         self.token_type_embedding = nn.Embedding(config.type_vocab_size, config.hidden_size)
@@ -243,8 +248,43 @@ class Bert(nn.Module):
         self.pooler = nn.Sequential(nn.Linear(config.hidden_size, config.hidden_size), nn.Tanh())
 
 
-    def get_parameter_dict(self):
-        # Used to load pretrained parameters from google
+
+        if tf_checkpoint_path is not None:
+            self.from_tf_checkpoint(tf_checkpoint_path)
+
+    def forward(self, token_idxs, position_idxs, token_type_idxs):
+        '''
+        Args:
+            token_idxs: (batch_size, seq_len)
+            position_idxs: (batch_size, seq_len)
+            token_type_idxs: (batch_size, seq_len), used for segment embedding, e.g. 0 and 1 for first and second segment(sentence piece) repectively
+        Return:
+            (batch_size, seq_len, hidden_size)
+        
+        Example:
+            Assming our vocabulary is {'Merry': 1, 'Christmas': 2, 'Mr': 3, 'Lawrence': 4, '[CLS]': 100, '[SEP]': 101}, 
+            the batch_size is 1, and the input sequence is "[CLS] Merry Christmas [SEP] Mr Lawrence [SEP]"
+
+            token_idxs is    [[100,  1 ,  2 , 101,  3 ,  4 , 101]]
+            position_idxs is [[ 0 ,  1 ,  2 ,  3 ,  4 ,  5 ,  6 ]]
+            token_type_idxs is  [[ 0 ,  0 ,  0 ,  0 ,  1 ,  1 ,  1 ]] (0 and 1 for first and second segment repectively)
+        '''
+        x = self.token_embedding(token_idxs) + self.position_embedding(position_idxs) + self.token_type_embedding(token_type_idxs)
+        x = self.layer_norm_and_dropout(x)
+
+        sequence_output = self.encoders(x)
+        # (batch_size, seq_len, hidden_size)
+
+        first_token_output = sequence_output.narrow(dim=-2, start=0, length=1).squeeze(dim=-2)
+        # Select at dimension -2(i.e. dim of seq_len), by range [start=0, start+length=1) (i.e. the first token CLS)] 
+        # (batch_size, hidden_size)
+
+        pooled_first_token_output = self.pooler(first_token_output)
+        # (batch_size, hidden_size)
+
+        return sequence_output, pooled_first_token_output
+
+    def from_tf_checkpoint(self, path):
 
         # TODO Check this again
         para_map = {}
@@ -279,12 +319,9 @@ class Bert(nn.Module):
             para_map[f'bert/encoder/layer_{i}/output/LayerNorm/beta'] = encoder_layer.add_and_norm_feed_forward.norm.b
             para_map[f'bert/encoder/layer_{i}/output/LayerNorm/gamma'] = encoder_layer.add_and_norm_feed_forward.norm.g
 
-        return para_map
-
-    def load_tf_checkpoint(self, path):
 
         names, arrays = [], []
-        parameters = self.get_parameter_dict()
+        parameters = para_map
 
         for name, shape in tf.train.list_variables(path):
 
@@ -305,56 +342,23 @@ class Bert(nn.Module):
                     raise
                 parameters[name].data = torch.from_numpy(array)
 
-    def forward(self, token_idxs, position_idxs, token_type_idxs):
-        '''
-        Args:
-            token_idxs: (batch_size, seq_len)
-            position_idxs: (batch_size, seq_len)
-            token_type_idxs: (batch_size, seq_len), used for segment embedding, e.g. 0 and 1 for first and second segment(sentence piece) repectively
-        Return:
-            (batch_size, seq_len, hidden_size)
-        
-        Example:
-            Assming our vocabulary is {'Merry': 1, 'Christmas': 2, 'Mr': 3, 'Lawrence': 4, '[CLS]': 100, '[SEP]': 101}, 
-            the batch_size is 1, and the input sequence is "[CLS] Merry Christmas [SEP] Mr Lawrence [SEP]"
-
-            token_idxs is    [[100,  1 ,  2 , 101,  3 ,  4 , 101]]
-            position_idxs is [[ 0 ,  1 ,  2 ,  3 ,  4 ,  5 ,  6 ]]
-            token_type_idxs is  [[ 0 ,  0 ,  0 ,  0 ,  1 ,  1 ,  1 ]] (0 and 1 for first and second segment repectively)
-        '''
-        x = self.token_embedding(token_idxs) + self.position_embedding(position_idxs) + self.token_type_embedding(token_type_idxs)
-        x = self.layer_norm_and_dropout(x)
-        x = self.encoders(x)
-        # (batch_size, seq_len, hidden_size)
-
-        self.sequence_output = x
-
-        first_tokens = x.narrow(dim=-2, start=0, length=1) 
-        # select at dimension -2(i.e. dim of seq_len), by range [start=0, start+length=1) (i.e. the first token CLS)] 
-        # (batch_size, hidden_size)
-
-        self.pooled_output = self.pooler(first_tokens) 
-
-        return x
 
 
 
 if __name__ == '__main__':
     
     # Usage
-    config = BertConfig()
-    config.from_json_file('../../google-bert/chinese_L-12_H-768_A-12/bert_config.json')
+    config = BertConfig(json_path='../../google-bert/chinese_L-12_H-768_A-12/bert_config.json')
 
-    model = Bert(config)
-    model.load_tf_checkpoint('../../google-bert/chinese_L-12_H-768_A-12/bert_model.ckpt')
+    model = BertModel(config, tf_checkpoint_path='../../google-bert/chinese_L-12_H-768_A-12/bert_model.ckpt')
 
     # See the sample above
     token_idxs = torch.LongTensor([[100, 1, 2, 101, 3, 4, 101]])
     position_idxs = torch.LongTensor([[ 0 ,  1 ,  2 ,  3 ,  4 ,  5 ,  6 ]])
     token_type_idxs = torch.LongTensor([[ 0 ,  0 ,  0 ,  0 ,  1 ,  1 ,  1 ]])
     
-    out = model(token_idxs, position_idxs, token_type_idxs)
+    sequence_output, pooled_first_token_output = model(token_idxs, position_idxs, token_type_idxs)
 
-    print (out.shape)
+    print (sequence_output.shape, pooled_first_token_output.shape)
     
 
