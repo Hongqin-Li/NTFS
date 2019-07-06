@@ -83,11 +83,25 @@ def attention(query, key, value, mask=None, dropout=None):
         attented word representation: (..., seq_len, hidden_size)
         attention matrix: (..., seq_len, seq_len)
     '''
-    hidden_size = query.size(-1)
+    hidden_size = query.shape[-1]
+    seq_len = query.shape[-2]
+
     scores = torch.matmul(query, key.transpose(-2, -1)) / math.sqrt(hidden_size)
     # (..., seq_len, seq_len)
 
     if mask is not None:
+        mask = torch.stack([mask] * seq_len, dim=-2).view(scores.shape)
+        # (..., seq_len, seq_len)
+
+        # Guarantee that values only varies on dimension 0 and 3, i.e. mask[i, j1, k1, :] == mask[i, j2, k2, :] for any i, j, k
+        for i in range(mask.shape[-4]):
+            x = mask[i, 0, 0, :]
+            for j in range(mask.shape[-3]):
+                for k in range(mask.shape[-2]):
+                    for l in range(mask.shape[-1]):
+                        
+                        assert x[l] == mask[i, j, k, l]
+                
         scores = scores.masked_fill(mask == 0, -1e9)
         # (..., seq_len, seq_len)
 
@@ -130,24 +144,26 @@ class MultiheadAttention(nn.Module):
         '''
 
         
-        if mask is not None:
-            # Same mask for all heads
-            mask = mask.unsqueeze(1)
-            # (batch_size, seq_len) -> (batch_size, 1, seq_len)
 
         batch_size, seq_len, embedding_dim = query.shape
+        num_heads = self.num_heads
         
-        query, key, value = [linear(x).view(batch_size, seq_len, self.num_heads, self.hidden_size).transpose(1, 2) for linear, x in zip((self.linear_q, self.linear_k, self.linear_v), (query, key, value))]
+        query, key, value = [linear(x).view(batch_size, seq_len, num_heads, self.hidden_size).transpose(1, 2) for linear, x in zip((self.linear_q, self.linear_k, self.linear_v), (query, key, value))]
         # view: split the last dimension (embedding_dim -> num_heads * hidden_size)
         # transpose: since the next step is feeding to attention(), the last two dimensions of whose input are seq_len and hidden_size 
         # The fancy view and transpose are used to avoid concatenation of heads(see the paper)
 
 
+        if mask is not None:
+            # Same mask for all heads
+            mask = torch.stack([mask] * num_heads, dim=-2).view(batch_size, num_heads, seq_len)
+            # (batch_size, seq_len) -> (batch_size, num_heads, seq_len)
+
         # query/key/value: (batch_size, num_heads, seq_len, hidden_size)
         x, self.attn = attention(query, key, value, mask=mask, dropout=self.dropout)
         # x: (batch_size, num_heads, seq_len, hidden_size)
 
-        x = x.transpose(1, 2).contiguous().view(batch_size, seq_len, self.num_heads * self.hidden_size)
+        x = x.transpose(1, 2).contiguous().view(batch_size, seq_len, num_heads * self.hidden_size)
         # (batch_size, seq_len, num_heads * hidden_size = embedding_dim)
 
         x = self.linear_out(x)
@@ -252,12 +268,13 @@ class BertModel(nn.Module):
         if tf_checkpoint_path is not None:
             self.from_tf_checkpoint(tf_checkpoint_path)
 
-    def forward(self, token_idxs, position_idxs, token_type_idxs):
+    def forward(self, token_idxs, position_idxs, token_type_idxs, masks=None):
         '''
         Args:
             token_idxs: (batch_size, seq_len)
             position_idxs: (batch_size, seq_len)
             token_type_idxs: (batch_size, seq_len), used for segment embedding, e.g. 0 and 1 for first and second segment(sentence piece) repectively
+            masks: (batch_size, seq_len), 0 for masked word(i.e. padding words when training or masks when pretraining), 1 otherwise
         Return:
             (batch_size, seq_len, hidden_size)
         
@@ -272,7 +289,7 @@ class BertModel(nn.Module):
         x = self.token_embedding(token_idxs) + self.position_embedding(position_idxs) + self.token_type_embedding(token_type_idxs)
         x = self.layer_norm_and_dropout(x)
 
-        sequence_output = self.encoders(x)
+        sequence_output = self.encoders(x, mask=masks)
         # (batch_size, seq_len, hidden_size)
 
         first_token_output = sequence_output.narrow(dim=-2, start=0, length=1).squeeze(dim=-2)
@@ -358,8 +375,9 @@ if __name__ == '__main__':
     token_idxs = torch.LongTensor([[100, 1, 2, 101, 3, 4, 101]])
     position_idxs = torch.LongTensor([[ 0 ,  1 ,  2 ,  3 ,  4 ,  5 ,  6 ]])
     token_type_idxs = torch.LongTensor([[ 0 ,  0 ,  0 ,  0 ,  1 ,  1 ,  1 ]])
+    masks = torch.LongTensor([[1, 1, 1, 1, 0, 0, 1]])
     
-    sequence_output, pooled_first_token_output = model(token_idxs, position_idxs, token_type_idxs)
+    sequence_output, pooled_first_token_output = model(token_idxs, position_idxs, token_type_idxs, masks)
 
     print (sequence_output.shape, pooled_first_token_output.shape)
     

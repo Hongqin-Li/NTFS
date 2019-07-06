@@ -17,10 +17,15 @@ class BertForSequenceClassification(nn.Module):
         self.dropout = nn.Dropout(0.1)
 
     def forward(self, inp):
-        token_idxs, position_idxs, token_type_idxs = inp
-        # all of shape (batch_size, seq_len)
 
-        _, pooled_first_token_output = self.bert_model(token_idxs, position_idxs, token_type_idxs)
+        if len(inp) == 4:
+            token_idxs, position_idxs, token_type_idxs, masks = inp
+            # all of shape (batch_size, seq_len)
+        else:
+            token_idxs, position_idxs, token_type_idxs = inp
+            masks = None
+
+        _, pooled_first_token_output = self.bert_model(token_idxs, position_idxs, token_type_idxs, masks)
         # (batch_size, hidden_size)
 
         x = self.linear(self.dropout(pooled_first_token_output))
@@ -49,10 +54,15 @@ class BertForSequenceLabeling(nn.Module):
         self.dropout = nn.Dropout(0.1)
 
     def forward(self, inp):
-        token_idxs, position_idxs, token_type_idxs = inp
-        # all of shape (batch_size, seq_len)
 
-        sequence_output, _ = self.bert_model(token_idxs, position_idxs, token_type_idxs)
+        if len(inp) == 4:
+            token_idxs, position_idxs, token_type_idxs, masks = inp
+            # all of shape (batch_size, seq_len)
+        else:
+            token_idxs, position_idxs, token_type_idxs = inp
+            masks = None
+
+        sequence_output, _ = self.bert_model(token_idxs, position_idxs, token_type_idxs, masks)
         # (batch_size, seq_len, hidden_size)
 
         x = self.linear(self.dropout(sequence_output))
@@ -78,14 +88,19 @@ class BertForQuestionAnswering(nn.Module):
 
         self.linear = nn.Linear(self.bert_model.hidden_size, 2)
 
-        # QA no dropout in official implementation?
+        # NOTE QA-bert has no dropout in official implementation?
         # self.dropout = nn.Dropout(0.1)
 
     def forward(self, inp):
-        token_idxs, position_idxs, token_type_idxs = inp
-        # all of shape (batch_size, seq_len)
 
-        sequence_output, _ = self.bert_model(token_idxs, position_idxs, token_type_idxs)
+        if len(inp) == 4:
+            token_idxs, position_idxs, token_type_idxs, masks = inp
+            # all of shape (batch_size, seq_len)
+        else:
+            token_idxs, position_idxs, token_type_idxs = inp
+            masks = None
+
+        sequence_output, _ = self.bert_model(token_idxs, position_idxs, token_type_idxs, masks)
         # (batch_size, hidden_size)
 
         # x = self.linear(self.dropout(sequence_output))
