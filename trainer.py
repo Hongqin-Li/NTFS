@@ -2,8 +2,7 @@ import torch
 
 class Trainer():
 
-    def __init__(self, model, optimizer, criterion, metrics, dataset, save_path):
-        # criterion: function to compute loss
+    def __init__(self, model, optimizer, metrics, dataset, save_path):
         # metrics: function to compute accuracy for early-stop
 
         self.dataset = dataset
@@ -11,14 +10,13 @@ class Trainer():
         self.model = model
         self.optimizer = optimizer
 
-        self.criterion = criterion
         self.metrics = metrics
 
         self.save_path = save_path
 
 
     # FIXME should modify both load and save function when adding other objects to save
-    def load_checkpoint():
+    def load_checkpoint(self):
         try:
             cp = torch.load(self.save_path)
 
@@ -32,7 +30,7 @@ class Trainer():
             self.num_trained_samples = 0
             print ('No checkpoint found!')
 
-    def save_checkpoint():
+    def save_checkpoint(self):
         torch.save({
             'model': self.model.state_dict(),  
             'optimizer': self.optimizer.state_dict(),  
@@ -48,17 +46,21 @@ class Trainer():
 
         while True:
 
+
+            cnt = 0
+
             self.model.train()
             for batch in self.dataset.trainset(batch_size=batch_size):
 
                 self.model.zero_grad()
-                # TODO Sequence labeling should consider mask !
-                loss = self.criterion(self.model(batch.input), batch.target)
+                # NOTE Sequence labeling should consider mask !
+                loss = self.model.compute_loss(self.model(batch.input), batch.target)
                 loss.backward()
                 self.optimizer.step()
 
-                print (f'idx: {cnt}, loss: {loss}')
+                cnt += batch_size
 
+                print (f'idx: {cnt}, loss: {loss}')
 
             self.model.eval()
             score = self.metrics(model, self.dataset.devset(batch_size=batch_size))

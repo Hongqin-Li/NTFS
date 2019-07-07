@@ -1,4 +1,6 @@
-from torch.optim import Opitmizer
+import torch
+import math
+from torch.optim import Optimizer
 
 
 # https://github.com/pytorch/pytorch/pull/21250

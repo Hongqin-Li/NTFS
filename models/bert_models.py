@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from bert import BertModel, BertConfig
+from .bert import BertModel, BertConfig
 
 
 def get_position_idxs(token_idxs):
@@ -29,7 +29,9 @@ class BertForSequenceClassification(nn.Module):
 
         self.num_classes = num_classes
         self.bert_model = BertModel(config)
-        self.bert_model.from_tf_checkpoint(tf_checkpoint_path)
+
+        if tf_checkpoint_path is not None:
+            self.bert_model.from_tf_checkpoint(tf_checkpoint_path)
 
         self.linear = nn.Linear(self.bert_model.hidden_size, num_classes)
         self.dropout = nn.Dropout(0.1)
@@ -51,6 +53,12 @@ class BertForSequenceClassification(nn.Module):
         # (batch_size, num_classes)
         return x
 
+    def compute_loss(self, pred, target):
+        # pred: (batch_size, num_classes)
+        # target: (batch_size)
+        criterion = nn.CrossEntropyLoss()
+        return criterion(pred, target)
+
     def predict(self, inp):
         x = self.forward(inp)
         # (batch_size, num_classes)
@@ -67,7 +75,9 @@ class BertForSequenceLabeling(nn.Module):
 
         self.num_classes = num_classes
         self.bert_model = BertModel(config)
-        self.bert_model.from_tf_checkpoint(tf_checkpoint_path)
+
+        if tf_checkpoint_path is not None:
+            self.bert_model.from_tf_checkpoint(tf_checkpoint_path)
 
         self.linear = nn.Linear(self.bert_model.hidden_size, num_classes)
         self.dropout = nn.Dropout(0.1)
@@ -89,6 +99,10 @@ class BertForSequenceLabeling(nn.Module):
         # (batch_size, seq_len, num_classes)
         return x
 
+    # TODO masking
+    def compute_loss(self, pred, target):
+        pass
+
     def predict(self, inp):
         x = self.forward(inp)
         # (batch_size, seq_len, num_classes)
@@ -104,7 +118,9 @@ class BertForQuestionAnswering(nn.Module):
         super(BertForQuestionAnswering, self).__init__()
 
         self.bert_model = BertModel(config)
-        self.bert_model.from_tf_checkpoint(tf_checkpoint_path)
+
+        if tf_checkpoint_path is not None:
+            self.bert_model.from_tf_checkpoint(tf_checkpoint_path)
 
         self.linear = nn.Linear(self.bert_model.hidden_size, 2)
 
@@ -130,6 +146,12 @@ class BertForQuestionAnswering(nn.Module):
         # (batch_size, seq_len, 2)
 
         return x[:, :, 0], x[:, :, 1]
+
+    def compute_loss(self, pred, target):
+        # pred: (batch_size, seq_len), (batch_size, seq_len)
+        # target: (batch_size), (batch_size)
+        criterion = nn.CrossEntropyLoss()
+        return (criterion(pred[0], target[0]) + criterion(pred[1], target[1])) / 2
 
     def predict(self, inp):
         prob_start, prob_end = self.forward(inp)
