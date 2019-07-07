@@ -17,7 +17,7 @@
   - [ ] [CJRC](http://cail.cipsc.org.cn/): only find trainset `small-train-data.json`, no devset and testset, thus omitted.
 - NER: Evaluation metrics include *precision*, *Recall* and *F-score*.
   - [x] [People Daily](https://github.com/ProHiryu/bert-chinese-ner/tree/master/data): trainset and devset
-  - [x] [MSRA-NER](<https://github.com/OYE93/Chinese-NLP-Corpus>): trainset and testset
+  - [x] [MSRA-NER](<https://github.com/OYE93/Chinese-NLP-Corpus>): trainset and testset (how to train? no devset)
 - NLI: 
   - [x] [XNLI](https://github.com/facebookresearch/XNLI): testset size not matched, mine is 5k, but the paper only get 2.5k
 - SC: , two-class sentence classification, remove stopwords?

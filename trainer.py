@@ -41,7 +41,6 @@ class Trainer():
         })
 
 
-    # TODO only api here
     def train(self, batch_size):
 
         self.load_checkpoint()
@@ -53,6 +52,7 @@ class Trainer():
             for batch in self.dataset.trainset(batch_size=batch_size):
 
                 self.model.zero_grad()
+                # TODO Sequence labeling should consider mask !
                 loss = self.criterion(self.model(batch.input), batch.target)
                 loss.backward()
                 self.optimizer.step()

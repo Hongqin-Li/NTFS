@@ -4,6 +4,24 @@ import torch.nn.functional as F
 
 from bert import BertModel, BertConfig
 
+
+def get_position_idxs(token_idxs):
+
+    batch_size, seq_len = token_idxs.shape
+
+    position_idxs = [[i for i in range(seq_len)]] * batch_size
+
+    if token_idxs.is_cuda:
+        position_idxs = torch.LongTensor(position_idxs).cuda()
+    else:
+        position_idxs = torch.LongTensor(position_idxs)
+
+    assert position_idxs.shape[0] == batch_size and position_idxs.shape[1] == seq_len
+
+    return position_idxs
+
+    
+
 class BertForSequenceClassification(nn.Module):
 
     def __init__(self, num_classes, config, tf_checkpoint_path=None):
@@ -18,12 +36,13 @@ class BertForSequenceClassification(nn.Module):
 
     def forward(self, inp):
 
-        if len(inp) == 4:
-            token_idxs, position_idxs, token_type_idxs, masks = inp
+        if len(inp) == 3:
+            token_idxs, token_type_idxs, masks = inp
             # all of shape (batch_size, seq_len)
         else:
-            token_idxs, position_idxs, token_type_idxs = inp
+            token_idxs, token_type_idxs = inp
             masks = None
+        position_idxs = get_position_idxs(token_idxs)
 
         _, pooled_first_token_output = self.bert_model(token_idxs, position_idxs, token_type_idxs, masks)
         # (batch_size, hidden_size)
@@ -55,12 +74,13 @@ class BertForSequenceLabeling(nn.Module):
 
     def forward(self, inp):
 
-        if len(inp) == 4:
-            token_idxs, position_idxs, token_type_idxs, masks = inp
+        if len(inp) == 3:
+            token_idxs, token_type_idxs, masks = inp
             # all of shape (batch_size, seq_len)
         else:
-            token_idxs, position_idxs, token_type_idxs = inp
+            token_idxs, token_type_idxs = inp
             masks = None
+        position_idxs = get_position_idxs(token_idxs)
 
         sequence_output, _ = self.bert_model(token_idxs, position_idxs, token_type_idxs, masks)
         # (batch_size, seq_len, hidden_size)
@@ -93,12 +113,14 @@ class BertForQuestionAnswering(nn.Module):
 
     def forward(self, inp):
 
-        if len(inp) == 4:
-            token_idxs, position_idxs, token_type_idxs, masks = inp
+        if len(inp) == 3:
+            token_idxs, token_type_idxs, masks = inp
             # all of shape (batch_size, seq_len)
         else:
-            token_idxs, position_idxs, token_type_idxs = inp
+            token_idxs, token_type_idxs = inp
             masks = None
+
+        position_idxs = get_position_idxs(token_idxs)
 
         sequence_output, _ = self.bert_model(token_idxs, position_idxs, token_type_idxs, masks)
         # (batch_size, hidden_size)
@@ -130,10 +152,9 @@ if __name__ == '__main__':
     model_qa = BertForQuestionAnswering(config=config, tf_checkpoint_path='../../bert_checkpoints/chinese-bert_chinese_wwm_L-12_H-768_A-12/bert_model.ckpt')
 
     token_idxs = torch.LongTensor([[100, 1, 2, 101, 3, 4, 101]])
-    position_idxs = torch.LongTensor([[ 0 ,  1 ,  2 ,  3 ,  4 ,  5 ,  6 ]])
     token_type_idxs = torch.LongTensor([[ 0 ,  0 ,  0 ,  0 ,  1 ,  1 ,  1 ]])
 
-    inp = token_idxs, position_idxs, token_type_idxs
+    inp = token_idxs, token_type_idxs
 
     out = model_sc(inp)
     pred = model_sc.predict(inp)
