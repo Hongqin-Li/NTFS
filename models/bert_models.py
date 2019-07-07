@@ -99,9 +99,14 @@ class BertForSequenceLabeling(nn.Module):
         # (batch_size, seq_len, num_classes)
         return x
 
-    # TODO masking
     def compute_loss(self, pred, target):
-        pass
+        # pred: (batch_size, seq_len, num_classes)
+        # target: (batch_size, seq_len)
+
+        # NOTE Dataset should have a target padding value of -1
+        criterion = nn.CrossEntropyLoss(ignore_index=-1) # ignore padding
+
+        return criterion(pred, target)
 
     def predict(self, inp):
         x = self.forward(inp)

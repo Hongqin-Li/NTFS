@@ -1,6 +1,7 @@
 import json
 import torch
 import torch.nn as nn
+from torch.nn.utils.rnn import pad_sequence
 
 from collections import namedtuple
 
@@ -78,9 +79,6 @@ class Dataset():
     def tags_to_tensor(self, ts):
         return torch.LongTensor([self.tag_to_idx(t) for t in ts])
 
-    def pad_sequence(self, s):
-        # TODO pad to 512?
-        return nn.utils.rnn.pad_sequence(s, batch_first=True)
 
     def samples(self, file_path, begin_idx, end_idx):
         # begin_idx and end_idx are used to split train_file into trainset and devset
@@ -139,20 +137,20 @@ class Dataset():
             cnt += 1
 
             if cnt >= batch_size:
-                yield Batch(input=(self.pad_sequence(token_idxs_batch),
-                                   self.pad_sequence(token_type_idxs_batch), 
-                                   self.pad_sequence(mask_batch)), 
-                            target=self.pad_sequence(tags_batch), 
+                yield Batch(input=(pad_sequence(token_idxs_batch, batch_first=True),
+                                   pad_sequence(token_type_idxs_batch, batch_first=True), 
+                                   pad_sequence(mask_batch, batch_first=True)), 
+                            target=pad_sequence(tags_batch, batch_first=True, padding_value=-1), 
                             idx_to_tag=self.idx_to_tag)
 
                 token_idxs_batch, token_type_idxs_batch, mask_batch, tags_batch = [], [], [], []
                 cnt = 0
 
         if cnt > 0 and not drop_last:
-            yield Batch(input=(self.pad_sequence(token_idxs_batch),
-                               self.pad_sequence(token_type_idxs_batch), 
-                               self.pad_sequence(mask_batch)), 
-                        target=self.pad_sequence(tags_batch), 
+            yield Batch(input=(pad_sequence(token_idxs_batch, batch_first=True),
+                               pad_sequence(token_type_idxs_batch, batch_first=True), 
+                               pad_sequence(mask_batch, batch_first=True)), 
+                        target=pad_sequence(tags_batch, batch_first=True, padding_value=-1), 
                         idx_to_tag=self.idx_to_tag)
 
 if __name__ == '__main__': 
