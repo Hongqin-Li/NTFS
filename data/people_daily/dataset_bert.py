@@ -34,6 +34,7 @@ class Dataset():
 
         self.max_seq_len = max_seq_len
         self.use_gpu = use_gpu
+        self.num_classes = 7
 
         self.train_file = train_file
         self.dev_file = dev_file
@@ -156,7 +157,6 @@ if __name__ == '__main__':
     def word_to_idx(w):
         w2i = {'当': 1, '希': 2}
         return w2i.get(w, 0)
-
 
     dataset = Dataset(train_file=train_file, dev_file=dev_file, test_file=test_file, word_to_idx=word_to_idx)
 

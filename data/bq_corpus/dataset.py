@@ -63,7 +63,7 @@ class Dataset():
             
             sent1 = self.sentence_to_tensor(sent1)
             sent2 = self.sentence_to_tensor(sent2)
-            label = torch.LongTensor([label])
+            label = torch.LongTensor([int(label)])
 
             if self.use_gpu: 
                 yield sent1.cuda(), sent2.cuda(), label.cuda()

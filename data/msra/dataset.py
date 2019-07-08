@@ -13,6 +13,7 @@ class Dataset():
         # word_to_idx: function, whose input is a string and output an int
 
         self.use_gpu = use_gpu
+        self.num_classes = 7
 
         self.train_file = train_file
         self.dev_file = 'dev'

@@ -33,6 +33,7 @@ class Dataset():
 
         self.max_seq_len = max_seq_len
         self.use_gpu = use_gpu
+        self.num_classes = 7
 
         self.train_file = train_file
         self.dev_file = 'dev'

@@ -13,6 +13,7 @@ class Dataset():
     def __init__(self, train_file, dev_file, test_file, word_to_idx, use_gpu=False):
         # vocab: dict-like, map word to idx, e.g. vocab['a'] = 1
         self.use_gpu = use_gpu
+        self.num_classes = 7
 
         self.train_file = train_file
         self.dev_file = dev_file

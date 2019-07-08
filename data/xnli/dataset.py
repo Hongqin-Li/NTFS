@@ -9,8 +9,8 @@ Batch = namedtuple('Batch', 'input target')
 
 class Dataset(): 
 
-    def __init__(self, train_file, dev_file, test_file, word_to_idx, tag_to_idx, use_gpu=False):
-        # word_to_idx/tag_to_idx: both are functions, whose input is a string and output an int
+    def __init__(self, train_file, dev_file, test_file, word_to_idx, use_gpu=False):
+        # word_to_idx: both are functions, whose input is a string and output an int
         self.use_gpu = use_gpu
 
         self.train_file = train_file
@@ -18,7 +18,6 @@ class Dataset():
         self.test_file = test_file
 
         self.word_to_idx = word_to_idx
-        self.tag_to_idx = tag_to_idx
 
         self.num_train_samples = 0
         for batch in self.trainset(batch_size=1000):
@@ -36,10 +35,6 @@ class Dataset():
         for batch in self.sample_batches(self.train_file, batch_size=batch_size, drop_last=drop_last):
             yield batch
             
-    def trainset(self, batch_size=1, drop_last=False):
-        for batch in self.sample_batches(self.train_file, batch_size=batch_size, drop_last=drop_last):
-            yield batch
-            
     def devset(self, batch_size=1, drop_last=False):
         for batch in self.sample_batches(self.dev_file, batch_size=batch_size, drop_last=drop_last):
             yield batch
@@ -47,6 +42,10 @@ class Dataset():
     def testset(self, batch_size=1, drop_last=False):
         for batch in self.sample_batches(self.test_file, batch_size=batch_size, drop_last=drop_last):
             yield batch
+
+    def tag_to_idx(self, tag):
+        t2i = {'neutral':0, 'entailment': 1, 'contradictory': 2, 'contradiction': 2}
+        return t2i[tag]
 
     def sentence_to_tensor(self, s):
         # s: string or list
@@ -124,11 +123,7 @@ if __name__ == '__main__':
         w2i = {'当': 1, '希': 2}
         return w2i.get(w, 0)
 
-    def tag_to_idx(tag):
-        t2i = {'neutral':0, 'entailment': 1, 'contradictory': 2, 'contradiction': 2}
-        return t2i[tag]
-
-    dataset = Dataset(train_file=train_file, dev_file=dev_file, test_file=test_file, word_to_idx=word_to_idx, tag_to_idx=tag_to_idx)
+    dataset = Dataset(train_file=train_file, dev_file=dev_file, test_file=test_file, word_to_idx=word_to_idx)
 
     print (f'trainset: {dataset.num_train_samples}')
     print (f'devset: {dataset.num_dev_samples}')
