@@ -93,6 +93,7 @@ def attention(query, key, value, mask=None, dropout=None):
         mask = torch.stack([mask] * seq_len, dim=-2).view(scores.shape)
         # (..., seq_len, seq_len)
 
+        '''
         # Guarantee that values only varies on dimension 0 and 3, i.e. mask[i, j1, k1, :] == mask[i, j2, k2, :] for any i, j, k
         for i in range(mask.shape[-4]):
             x = mask[i, 0, 0, :]
@@ -101,6 +102,7 @@ def attention(query, key, value, mask=None, dropout=None):
                     for l in range(mask.shape[-1]):
                         
                         assert x[l] == mask[i, j, k, l]
+        '''
                 
         scores = scores.masked_fill(mask == 0, -1e9)
         # (..., seq_len, seq_len)
