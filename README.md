@@ -1,10 +1,18 @@
 # NTFS: NLP Tester For Slobs
 
+Also a naive framework for NLP.
+
+## Framework
+
+- Dataset: providing train/development/test set and some other features of dataset. 
+
+- Model: computing loss and make prediction based on input. 
+
+- Metrics: evaluation on development set, which is used to do early stop of the training.
 
 
 
-
-## Downstream Tasks
+## NLP Tasks
 
 
 
