@@ -65,7 +65,7 @@ class Trainer():
                 print (f'idx: {cnt}, loss: {loss}')
 
             self.model.eval()
-            score = self.metrics(model, self.dataset.devset(batch_size=batch_size))
+            score = self.metrics(self.model, self.dataset.devset)
 
             print (f'Epoch: {self.num_trained_samples // self.dataset.num_train_samples}, score: {score}')
 
