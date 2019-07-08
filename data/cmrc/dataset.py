@@ -81,8 +81,22 @@ class Dataset():
                             if len(a_set) != 0: continue 
                             a_set.add(ans['text'])
                        
-                            start_idx = ans['answer_start']
-                            end_idx = start_idx + len(ans) - 1
+                            start_idx = doc.find(ans['text'])
+                            end_idx = start_idx + len(ans['text']) - 1
+
+                            assert start_idx >= 0
+
+                            # print (ans['text'])
+                            # print (f'{doc[start_idx: end_idx + 1]}')
+                            try:
+                                assert doc[start_idx: end_idx + 1] == ans['text']
+                                assert end_idx < len(doc)
+                            except:
+                                print (f'doc[{len(doc)}]: {doc}')
+                                print (f'ans[{len(ans["text"])}]: {ans["text"]}')
+                                print (doc[start_idx], start_idx, end_idx, len(doc))
+                                raise
+
                             yield doc, quest, start_idx, end_idx
 
    

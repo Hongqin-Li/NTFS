@@ -81,7 +81,6 @@ class Dataset():
         return torch.LongTensor([self.word_to_idx(w) for w in s])
 
     def pad_sequence(self, s):
-        # TODO pad to 512?
         return nn.utils.rnn.pad_sequence(s, batch_first=True)
 
     def samples(self, file_path):
@@ -121,8 +120,7 @@ class Dataset():
         cnt = 0
 
         # Input
-        sent1_batch, sent2_batch = [], [] # (batch_size, seq_len)
-        token_idxs_batch, token_type_idxs_batch, mask_batch = [], [], []
+        token_idxs_batch, token_type_idxs_batch, mask_batch = [], [], [] 
         # Target
         tag_batch = [] # (batch_size)
 
@@ -130,6 +128,7 @@ class Dataset():
             # all string-like
 
             token_idxs, token_type_idxs, mask = parse_sentence_pair(sent1, sent2, self.word_to_idx, self.max_seq_len)        
+            # all (batch_size, seq_len)
 
             token_idxs = torch.LongTensor(token_idxs)
             token_type_idxs = torch.LongTensor(token_type_idxs)
