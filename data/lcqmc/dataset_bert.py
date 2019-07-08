@@ -35,17 +35,17 @@ def parse_sentence_pair(sent1, sent2, word_to_idx, max_seq_len):
 
 class Dataset(): 
 
-    def __init__(self, train_file, dev_file, test_file, word_to_idx, tag_to_idx, max_seq_len=512, use_gpu=False):
-        # word_to_idx/tag_to_idx: both are functions, whose input is a string and output an int
+    def __init__(self, train_file, dev_file, test_file, word_to_idx, max_seq_len=512, use_gpu=False):
+        # word_to_idx: both are functions, whose input is a string and output an int
         self.use_gpu = use_gpu
         self.max_seq_len = 512
+        self.num_classes = 2
 
         self.train_file = train_file
         self.dev_file = dev_file
         self.test_file = test_file
 
         self.word_to_idx = word_to_idx
-        self.tag_to_idx = tag_to_idx
 
         self.num_train_samples = 0
         for batch in self.trainset(batch_size=1000):
@@ -74,6 +74,9 @@ class Dataset():
     def testset(self, batch_size=1, drop_last=False):
         for batch in self.sample_batches(self.test_file, batch_size=batch_size, drop_last=drop_last):
             yield batch
+
+    def tag_to_idx(self, t):
+        return int(t)
 
     def pad_sequence(self, s):
         return nn.utils.rnn.pad_sequence(s, batch_first=True)
@@ -140,10 +143,7 @@ if __name__ == '__main__':
         w2i = {'当': 1, '希': 2}
         return w2i.get(w, 0)
 
-    def tag_to_idx(tag):
-        return int(tag)
-
-    dataset = Dataset(train_file=train_file, dev_file=dev_file, test_file=test_file, word_to_idx=word_to_idx, tag_to_idx=tag_to_idx)
+    dataset = Dataset(train_file=train_file, dev_file=dev_file, test_file=test_file, word_to_idx=word_to_idx)
 
     print (f'trainset: {dataset.num_train_samples}')
     print (f'devset: {dataset.num_dev_samples}')

@@ -9,31 +9,11 @@ from collections import namedtuple
 # Can be simply regarded as a object, called "Batch", having attributes "input" and "target"
 Batch = namedtuple('Batch', 'input target')
 
-# bert-like processing
-def parse_sentence(sent, word_to_idx, max_seq_len):
-    token_idxs, token_type_idxs, mask = [word_to_idx('[CLS]')], [0], [1] # (seq_len)
-
-    length = len(sent)
-    if length > max_seq_len - 2:
-        # print ('Warning: exceed max_seq_len')
-        length = max_seq_len - 2
-        sent = sent[:length]
-
-    token_idxs += [word_to_idx(w) for w in sent] + [word_to_idx('[SEP]')]
-    token_type_idxs += [0] * (length + 1) # +1 for [SEP] following the sentence
-    mask += [1] * (length + 1) # +1 for [SEP]
-
-    assert len(token_idxs) == len(token_type_idxs) and len(token_idxs) == len(mask) and len(mask) <= max_seq_len
-
-    return token_idxs, token_type_idxs, mask
-
-
 class Dataset(): 
 
-    def __init__(self, raw_file, train_file, dev_file, test_file, word_to_idx, max_seq_len=512, use_gpu=False):
+    def __init__(self, raw_file, train_file, dev_file, test_file, word_to_idx, use_gpu=False):
         # word_to_idx/tag_to_idx: both are functions, whose input is a string and output an int
-
-        self.max_seq_len = max_seq_len
+        self.num_classes = 2
 
         self.use_gpu = use_gpu
 
@@ -46,19 +26,18 @@ class Dataset():
         self.word_to_idx = word_to_idx
 
         self.split_raw()
-
         
         self.num_train_samples = 0
         for batch in self.trainset(batch_size=1000):
-            self.num_train_samples += batch.input[0].shape[0]
+            self.num_train_samples += batch[0].shape[0]
 
         self.num_dev_samples = 0
         for batch in self.devset(batch_size=1000):
-            self.num_dev_samples += batch.input[0].shape[0]
+            self.num_dev_samples += batch[0].shape[0]
 
         self.num_test_samples = 0
         for batch in self.testset(batch_size=1000):
-            self.num_test_samples += batch.input[0].shape[0]
+            self.num_test_samples += batch[0].shape[0]
 
     def trainset(self, batch_size=1, drop_last=False):
         for batch in self.sample_batches(self.train_file, batch_size=batch_size, drop_last=drop_last):
@@ -133,7 +112,11 @@ class Dataset():
             for line in f:
                 tag, sent = line.strip().split('\t')
                 # print (tag, sent)
-                yield sent, tag
+                sent = torch.LongTensor([self.word_to_idx(w) for w in sent])
+                tag = torch.LongTensor([int(tag)])
+
+                if self.use_gpu: yield sent.cuda(), tag.cuda()
+                else: yield sent, tag
                 
    
     def sample_batches(self, file_path, batch_size=1, drop_last=False):
@@ -141,50 +124,28 @@ class Dataset():
         cnt = 0
 
         # Input
-        token_idxs_batch, token_type_idxs_batch, mask_batch = [], [], [] # (batch_size, seq_len)
+        sent_batch = [] # (batch_size, seq_len)
         # Target
         tag_batch = [] # (batch_size)
 
         for sent, tag in self.samples(file_path):
-            # all string-like
+            # all Tensor-like
 
-            token_idxs, token_type_idxs, mask = parse_sentence(sent, self.word_to_idx, self.max_seq_len) # (seq_len)
-
-            token_idxs = torch.LongTensor(token_idxs)
-            token_type_idxs = torch.LongTensor(token_type_idxs)
-            mask = torch.LongTensor(mask)
-            tag = torch.LongTensor([int(tag)])
-
-            if self.use_gpu:
-                token_idxs = token_idxs.cuda()
-                token_type_idxs = token_type_idxs.cuda()
-                mask = mask.cuda()
-                tag = tag.cuda()
-
-            token_idxs_batch.append(token_idxs)
-            token_type_idxs_batch.append(token_type_idxs)
-            mask_batch.append(mask)
+            sent_batch.append(sent)
             tag_batch.append(tag)
-
-            # tag_batch.append(int(tag))
 
             cnt += 1
 
             if cnt >= batch_size:
-
-                yield Batch(input=(self.pad_sequence(token_idxs_batch), 
-                                   self.pad_sequence(token_type_idxs_batch), 
-                                   self.pad_sequence(mask_batch)), 
-                            target=torch.cat(tag_batch))
-
-                token_idxs_batch, token_type_idxs_batch, mask_batch, tag_batch = [], [], [], []
+                yield Batch(input=self.pad_sequence(sent_batch), target=torch.cat(tag_batch))
+                sent_batch, tag_batch = [], []
                 cnt = 0
 
         if cnt > 0 and not drop_last:
-            yield Batch(input=(self.pad_sequence(token_idxs_batch), 
-                               self.pad_sequence(token_type_idxs_batch), 
-                               self.pad_sequence(mask_batch)), 
-                        target=torch.cat(tag_batch))
+            yield Batch(input=self.pad_sequence(sent_batch), target=torch.cat(tag_batch))
+
+
+
 
 if __name__ == '__main__': 
     # Usage
@@ -204,25 +165,24 @@ if __name__ == '__main__':
     print (f'testset: {dataset.num_test_samples}')
 
     cnt = 0
-    for (token_idxs_batch, token_type_idxs_batch, mask_batch), tag_batch in dataset.trainset(batch_size=10, drop_last=False):
-        # print (f'input_batch: {token_idxs_batch.shape, token_type_idxs_batch.shape, mask_batch.shape}, target_batch: {tag_batch.shape}')
-        # print (token_idxs_batch)
+    for sent_batch, tag_batch in dataset.trainset(batch_size=10, drop_last=False):
+        # print (f'sent_batch: {sent_batch.shape}, tag_batch: {tag_batch.shape}')
         # input ()
-        cnt += tag_batch.shape[0]
+        cnt += sent_batch.shape[0]
     print (f'trainset: {cnt}')
     
     cnt = 0
-    for (token_idxs_batch, token_type_idxs_batch, mask_batch), tag_batch in dataset.devset(batch_size=10, drop_last=False):
-        # print (f'input_batch: {token_idxs_batch.shape, token_type_idxs_batch.shape, mask_batch.shape}, target_batch: {tag_batch.shape}')
+    for sent_batch, tag_batch in dataset.devset(batch_size=10, drop_last=False):
+        # print (f'sent_batch: {sent_batch.shape}, tag_batch: {tag_batch.shape}')
         # input ()
-        cnt += tag_batch.shape[0]
+        cnt += sent_batch.shape[0]
     print (f'devset: {cnt}')
 
     cnt = 0
-    for (token_idxs_batch, token_type_idxs_batch, mask_batch), tag_batch in dataset.testset(batch_size=10, drop_last=False):
-        # print (f'input_batch: {token_idxs_batch.shape, token_type_idxs_batch.shape, mask_batch.shape}, target_batch: {tag_batch.shape}')
+    for sent_batch, tag_batch in dataset.testset(batch_size=10, drop_last=False):
+        # print (f'sent_batch: {sent_batch.shape}, tag_batch: {tag_batch.shape}')
         # input ()
-        cnt += tag_batch.shape[0]
+        cnt += sent_batch.shape[0]
     print (f'testset: {cnt}')
-    
+
 

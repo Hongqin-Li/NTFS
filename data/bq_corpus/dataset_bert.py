@@ -40,6 +40,7 @@ class Dataset():
         # word_to_idx/tag_to_idx: both are functions, whose input is a string and output an int
         self.use_gpu = use_gpu
         self.max_seq_len = 512
+        self.num_classes = 2
 
         self.train_file = train_file
         self.dev_file = dev_file

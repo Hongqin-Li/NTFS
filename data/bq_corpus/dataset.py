@@ -10,6 +10,7 @@ Batch = namedtuple('Batch', 'input target')
 class Dataset():
     def __init__(self, train_file, dev_file, test_file, word_to_idx, use_gpu=False):
         # word_to_idx/tag_to_idx: both are functions, whose input is a string and output an int
+        self.num_classes = 2
 
         self.use_gpu = use_gpu
 
