@@ -10,8 +10,9 @@ Batch = namedtuple('Batch', 'input target idx_to_tag')
 
 class Dataset(): 
 
-    def __init__(self, train_file, dev_file, test_file, word_to_idx):
+    def __init__(self, train_file, dev_file, test_file, word_to_idx, use_gpu=False):
         # vocab: dict-like, map word to idx, e.g. vocab['a'] = 1
+        self.use_gpu = use_gpu
 
         self.train_file = train_file
         self.dev_file = dev_file
@@ -69,7 +70,15 @@ class Dataset():
 
             for line in f:
                 if line.isspace():
-                    yield words, tags
+
+                    words = self.words_to_tensor(words)
+                    tags = self.tags_to_tensor(tags)
+
+                    if self.use_gpu:
+                        yield words.cuda(), tags.cuda()
+                    else:
+                        yield words, tags
+
                     words, tags = [], []
                 else:
                     w, t = line.split()
@@ -89,8 +98,8 @@ class Dataset():
 
         for words, tags in self.samples(file_path):
             # all tensor-like
-            words_batch.append(self.words_to_tensor(words))
-            tags_batch.append(self.tags_to_tensor(tags))
+            words_batch.append(words)
+            tags_batch.append(tags)
 
             cnt += 1
 

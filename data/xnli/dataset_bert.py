@@ -35,9 +35,10 @@ def parse_sentence_pair(sent1, sent2, word_to_idx, max_seq_len):
 
 class Dataset(): 
 
-    def __init__(self, train_file, dev_file, test_file, word_to_idx, tag_to_idx, max_seq_len=512):
+    def __init__(self, train_file, dev_file, test_file, word_to_idx, tag_to_idx, max_seq_len=512, use_gpu=False):
         # word_to_idx/tag_to_idx: both are functions, whose input is a string and output an int
         self.max_seq_len = 512
+        self.use_gpu = use_gpu
 
         self.train_file = train_file
         self.dev_file = dev_file
@@ -130,20 +131,28 @@ class Dataset():
 
             token_idxs, token_type_idxs, mask = parse_sentence_pair(sent1, sent2, self.word_to_idx, self.max_seq_len)        
 
-            token_idxs_batch.append(torch.LongTensor(token_idxs))
-            token_type_idxs_batch.append(torch.LongTensor(token_type_idxs))
-            mask_batch.append(torch.LongTensor(mask))
-            tag_batch.append(self.tag_to_idx(tag))
+            token_idxs = torch.LongTensor(token_idxs)
+            token_type_idxs = torch.LongTensor(token_type_idxs)
+            mask = torch.LongTensor(mask)
+            tag = torch.LongTensor([self.tag_to_idx(tag)])
+
+            if self.use_gpu:
+                token_idxs, token_type_idxs, mask, tag = token_idxs.cuda(), token_type_idxs.cuda(), mask.cuda(), tag.cuda()
+
+            token_idxs_batch.append(token_idxs)
+            token_type_idxs_batch.append(token_type_idxs)
+            mask_batch.append(mask)
+            tag_batch.append(tag)
 
             cnt += 1
 
             if cnt >= batch_size:
-                yield Batch(input=(self.pad_sequence(token_idxs_batch), self.pad_sequence(token_type_idxs_batch), self.pad_sequence(mask_batch)), target=torch.LongTensor(tag_batch))
+                yield Batch(input=(self.pad_sequence(token_idxs_batch), self.pad_sequence(token_type_idxs_batch), self.pad_sequence(mask_batch)), target=torch.cat(tag_batch))
                 token_idxs_batch, token_type_idxs_batch, mask_batch, tag_batch = [], [], [], []
                 cnt = 0
 
         if cnt > 0 and not drop_last:
-            yield Batch(input=(self.pad_sequence(token_idxs_batch), self.pad_sequence(token_type_idxs_batch), self.pad_sequence(mask_batch)), target=torch.LongTensor(tag_batch))
+            yield Batch(input=(self.pad_sequence(token_idxs_batch), self.pad_sequence(token_type_idxs_batch), self.pad_sequence(mask_batch)), target=torch.cat(tag_batch))
 
 
 if __name__ == '__main__': 

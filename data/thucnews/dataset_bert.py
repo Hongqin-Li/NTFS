@@ -29,10 +29,11 @@ def parse_sentence(sent, word_to_idx, max_seq_len):
 
 class Dataset(): 
 
-    def __init__(self, train_file, dev_file, test_file, word_to_idx, tag_to_idx, max_seq_len=512):
+    def __init__(self, train_file, dev_file, test_file, word_to_idx, tag_to_idx, max_seq_len=512, use_gpu=False):
         # word_to_idx: function, whose input is a string and output an int
 
         self.max_seq_len = max_seq_len
+        self.use_gpu = use_gpu
 
         self.train_file = train_file
         self.dev_file = dev_file
@@ -90,10 +91,18 @@ class Dataset():
 
             token_idxs, token_type_idxs, mask = parse_sentence(sent, self.word_to_idx, self.max_seq_len)
 
-            token_idxs_batch.append(torch.LongTensor(token_idxs))
-            token_type_idxs_batch.append(torch.LongTensor(token_type_idxs))
-            mask_batch.append(torch.LongTensor(mask))
-            tag_batch.append(self.tag_to_idx(tag))
+            token_idxs = torch.LongTensor(token_idxs)
+            token_type_idxs = torch.LongTensor(token_type_idxs)
+            mask = torch.LongTensor(mask)
+            tag = torch.LongTensor([self.tag_to_idx(tag)])
+
+            if self.use_gpu:
+                token_idxs, token_type_idxs, mask, tag = token_idxs.cuda(), token_type_idxs.cuda(), mask.cuda(), tag.cuda()
+
+            token_idxs_batch.append(token_idxs)
+            token_type_idxs_batch.append(token_type_idxs)
+            mask_batch.append(mask)
+            tag_batch.append(tag)
 
             cnt += 1
 
@@ -102,7 +111,7 @@ class Dataset():
                 yield Batch(input=(self.pad_sequence(token_idxs_batch), 
                                    self.pad_sequence(token_type_idxs_batch), 
                                    self.pad_sequence(mask_batch)), 
-                            target=torch.LongTensor(tag_batch))
+                            target=torch.cat(tag_batch))
 
                 token_idxs_batch, token_type_idxs_batch, mask_batch, tag_batch = [], [], [], []
                 cnt = 0
@@ -111,7 +120,7 @@ class Dataset():
             yield Batch(input=(self.pad_sequence(token_idxs_batch), 
                                self.pad_sequence(token_type_idxs_batch), 
                                self.pad_sequence(mask_batch)), 
-                        target=torch.LongTensor(tag_batch))
+                        target=torch.cat(tag_batch))
 
 if __name__ == '__main__': 
     # Usage

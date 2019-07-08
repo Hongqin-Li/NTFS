@@ -29,10 +29,11 @@ def parse_sentence(sent, word_to_idx, max_seq_len):
 
 class Dataset(): 
 
-    def __init__(self, train_file, dev_file, test_file, word_to_idx, max_seq_len=512):
+    def __init__(self, train_file, dev_file, test_file, word_to_idx, max_seq_len=512, use_gpu=False):
         # vocab: dict-like, map word to idx, e.g. vocab['a'] = 1
 
         self.max_seq_len = max_seq_len
+        self.use_gpu = use_gpu
 
         self.train_file = train_file
         self.dev_file = dev_file
@@ -113,11 +114,18 @@ class Dataset():
 
             token_idxs, token_type_idxs, mask = parse_sentence(words, self.word_to_idx, self.max_seq_len) # (seq_len)
 
-            token_idxs_batch.append(torch.LongTensor(token_idxs))
-            token_type_idxs_batch.append(torch.LongTensor(token_type_idxs))
-            mask_batch.append(torch.LongTensor(mask))
+            token_idxs = torch.LongTensor(token_idxs)
+            token_type_idxs = torch.LongTensor(token_type_idxs)
+            mask = torch.LongTensor(mask)
+            tags = self.tags_to_tensor(tags)
 
-            tags_batch.append(self.tags_to_tensor(tags))
+            if self.use_gpu:
+                token_idxs, token_type_idxs, mask, tags = token_idxs.cuda(), token_type_idxs.cuda(), mask.cuda(), tags.cuda()
+
+            token_idxs_batch.append(token_idxs)
+            token_type_idxs_batch.append(token_type_idxs)
+            mask_batch.append(mask)
+            tags_batch.append(tags)
 
             cnt += 1
 

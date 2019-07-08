@@ -9,8 +9,10 @@ Batch = namedtuple('Batch', 'input target idx_to_tag')
 
 class Dataset(): 
 
-    def __init__(self, train_file=None, test_file=None, word_to_idx=None, split=0.9):
+    def __init__(self, train_file=None, test_file=None, word_to_idx=None, split=0.9, use_gpu=False):
         # word_to_idx: function, whose input is a string and output an int
+
+        self.use_gpu = use_gpu
 
         self.train_file = train_file
         self.dev_file = 'dev'
@@ -42,7 +44,7 @@ class Dataset():
         for batch in self.sample_batches(self.test_file, batch_size=batch_size, drop_last=drop_last):
             yield batch
 
-    def words_to_tensor(self, ws):
+    def sentence_to_tensor(self, ws):
         # ws: string or list
         # return: 1-d long tensor of shape (seq_len)
         return torch.LongTensor([self.word_to_idx(w) for w in ws])
@@ -75,7 +77,13 @@ class Dataset():
                         break
 
                     elif i >= begin_idx: 
-                        yield words, tags
+                        words = self.sentence_to_tensor(words)
+                        tags = self.tags_to_tensor(tags)
+
+                        if self.use_gpu: 
+                            yield words.cuda(), tags.cuda()
+                        else:
+                            yield words, tags
 
                     words, tags = [], []
                 else:
@@ -103,8 +111,8 @@ class Dataset():
 
         for words, tags in self.samples(file_path, begin_idx, end_idx):
             # all tensor-like
-            words_batch.append(self.words_to_tensor(words))
-            tags_batch.append(self.tags_to_tensor(tags))
+            words_batch.append(words)
+            tags_batch.append(tags)
 
             cnt += 1
 

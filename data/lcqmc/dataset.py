@@ -7,8 +7,9 @@ from collections import namedtuple
 Batch = namedtuple('Batch', 'input target')
 
 class Dataset():
-    def __init__(self, train_file, dev_file, test_file, word_to_idx):
+    def __init__(self, train_file, dev_file, test_file, word_to_idx, use_gpu=False):
         # word_to_idx/tag_to_idx: both are functions, whose input is a string and output an int
+        self.use_gpu = use_gpu
 
         self.train_file = train_file
         self.dev_file = dev_file
@@ -47,14 +48,22 @@ class Dataset():
         return torch.LongTensor([self.word_to_idx(w) for w in s])
 
     def pad_sequence(self, s):
-        # TODO pad to 512?
         return nn.utils.rnn.pad_sequence(s, batch_first=True)
 
     def samples(self, file_path):
         with open(file_path, 'r', encoding='utf-8') as f:
             for line in f:
+
                 sent1, sent2, label = line.strip().split('\t')
-                yield sent1, sent2, label
+
+                sent1 = self.sentence_to_tensor(sent1)
+                sent2 = self.sentence_to_tensor(sent2)
+                label = torch.LongTensor([int(label)])
+
+                if self.use_gpu: 
+                    yield sent1.cuda(), sent2.cuda(), label.cuda()
+                else: 
+                    yield sent1, sent2, label
 
     def sample_batches(self, file_path, batch_size=1, drop_last=False):
         # drop_last: drop the last incomplete batch if True
@@ -66,20 +75,27 @@ class Dataset():
         tag_batch = [] # (batch_size)
 
         for sent1, sent2, tag in self.samples(file_path):
+            # tensor-like
+            # sent1/sent2: (seq_len)
+            # tag: (1)
 
-            sent1_batch.append(self.sentence_to_tensor(sent1))
-            sent2_batch.append(self.sentence_to_tensor(sent2))
-            tag_batch.append(int(tag))
+            sent1_batch.append(sent1)
+            sent2_batch.append(sent2)
+            tag_batch.append(tag)
 
             cnt += 1
 
             if cnt >= batch_size:
-                yield Batch(input=(self.pad_sequence(sent1_batch), self.pad_sequence(sent2_batch)), target=torch.LongTensor(tag_batch))
+                yield Batch(input=(self.pad_sequence(sent1_batch), 
+                                   self.pad_sequence(sent2_batch)), 
+                            target=torch.cat(tag_batch))
                 sent1_batch, sent2_batch, tag_batch = [], [], []
                 cnt = 0
     
         if cnt > 0 and not drop_last:
-            yield Batch(input=(self.pad_sequence(sent1_batch), self.pad_sequence(sent2_batch)), target=torch.LongTensor(tag_batch))
+            yield Batch(input=(self.pad_sequence(sent1_batch), 
+                               self.pad_sequence(sent2_batch)), 
+                        target=torch.cat(tag_batch))
 
 if __name__ == '__main__':
     # Usage
