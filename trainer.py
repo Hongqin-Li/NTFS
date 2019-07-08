@@ -13,6 +13,7 @@ class Trainer():
         self.metrics = metrics
 
         self.save_path = save_path
+        self.save_path_tmp = save_path + '.tmp'
 
 
     # FIXME should modify both load and save function when adding other objects to save
@@ -30,13 +31,13 @@ class Trainer():
             self.num_trained_samples = 0
             print ('No checkpoint found!')
 
-    def save_checkpoint(self):
+    def save_checkpoint(self, path):
         torch.save({
             'model': self.model.state_dict(),  
             'optimizer': self.optimizer.state_dict(),  
             'best_score': self.best_score,
             'num_trained_samples': self.num_trained_samples
-        })
+        }, path)
 
 
     def train(self, batch_size):
@@ -59,6 +60,7 @@ class Trainer():
                 self.optimizer.step()
 
                 cnt += batch_size
+                self.save_checkpoint(self.save_path_tmp)
 
                 print (f'idx: {cnt}, loss: {loss}')
 
@@ -70,7 +72,7 @@ class Trainer():
             if score > self.best_score:
                 self.best_score = score
                 self.num_trained_samples += self.dataset.num_train_samples
-                self.save_checkpoint()
+                self.save_checkpoint(self.save_path)
                
             # TODO still train for several epochs to find a better model
             else:

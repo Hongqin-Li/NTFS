@@ -1,4 +1,5 @@
 
+import torch
 from data.sina_weibo.dataset_bert import Dataset
 
 from models.bert_models import BertForSequenceClassification, BertForSequenceLabeling, BertForQuestionAnswering
@@ -36,19 +37,24 @@ def run_sina_weibo():
                       test_file=test_file, 
                       word_to_idx=word_to_idx)
 
-    # config = BertConfig(json_path='../bert_checkpoints/chinese-bert_chinese_wwm_L-12_H-768_A-12/bert_config.json')
-    # model_sc = BertForSequenceClassification(num_classes=2, config=config, tf_checkpoint_path='../bert_checkpoints/chinese-bert_chinese_wwm_L-12_H-768_A-12/bert_model.ckpt')
+    config = BertConfig(json_path='../bert_checkpoints/chinese-bert_chinese_wwm_L-12_H-768_A-12/bert_config.json')
+    model = BertForSequenceClassification(num_classes=2, config=config, tf_checkpoint_path='../bert_checkpoints/chinese-bert_chinese_wwm_L-12_H-768_A-12/bert_model.ckpt')
 
-    config = BertConfig(json_path='../bert_checkpoints/bert_toy_config.json')
-    model = BertForSequenceClassification(num_classes=2, config=config)
+
+    # config = BertConfig(json_path='../bert_checkpoints/bert_toy_config.json')
+    # model = BertForSequenceClassification(num_classes=2, config=config)
     optimizer = AdamW(model.parameters(), lr=2e-5)
+
+    if torch.cuda.is_available:
+        model = model.cuda()
+        dataset.use_gpu = True
 
     trainer = Trainer(model=model, 
                       optimizer=optimizer, 
                       metrics=accuracy_score, 
                       dataset=dataset, 
                       save_path='./checkpoints/sina_weibo.pt')
-    trainer.train(batch_size=3)
+    trainer.train(batch_size=1)
 
 
 if __name__ == '__main__':
