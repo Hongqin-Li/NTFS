@@ -2,6 +2,27 @@ import torch
 import math
 from torch.optim import Optimizer
 
+class WarmupOptimizer():
+
+    def __init__(self, optimizer, num_warmup_steps=1000, lr=2e-5):
+        self.optimizer = optimizer
+        self.steps = 0
+        self.num_warmup_steps = num_warmup_steps
+        self.lr = lr
+        self.state_dict = self.optimizer.state_dict
+   
+    def step(self):
+        self.steps += 1
+        if self.steps <= self.num_warmup_steps: 
+            lr = self.lr * self.steps / self.num_warmup_steps
+        else:
+            lr = self.lr
+
+        for param_group in self.optimizer.param_groups:
+            param_group['lr'] = lr
+
+        self.optimizer.step()
+        
 
 # https://github.com/pytorch/pytorch/pull/21250
 class AdamW(Optimizer):
