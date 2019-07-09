@@ -216,7 +216,7 @@ class EncoderLayer(nn.Module):
 
         self.linear_ff = nn.Linear(hidden_size, feed_forward_hidden_size)
         self.linear_out = nn.Linear(feed_forward_hidden_size, hidden_size)
-        self.dropout = nn.Dropout()
+        # self.dropout = nn.Dropout()
 
     def forward(self, x, mask=None):
         # x: (batch_size, seq_len, hidden_size)
@@ -224,7 +224,7 @@ class EncoderLayer(nn.Module):
 
         x = self.add_and_norm_attention(x, self.multihead_attention(x, x, x, mask))
 
-        feed_forward = self.linear_out(self.dropout(gelu(self.linear_ff(x))))
+        feed_forward = self.linear_out(gelu(self.linear_ff(x)))
 
         x = self.add_and_norm_feed_forward(x, feed_forward)
         return x
