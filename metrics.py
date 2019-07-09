@@ -7,7 +7,7 @@ from collections import Counter
 def accuracy_score(model, dataset):
 
     score, total = 0, 0
-    for batch in dataset(batch_size=100):
+    for batch in dataset(batch_size=10):
 
         # NOTE model should support "predict" method
         pred = model.predict(batch.input) # (batch_size)
@@ -23,7 +23,7 @@ def qa_em_score(model, dataset):
     # EM: both start index and end index are identical to those of target
 
     score, total = 0, 0
-    for batch in dataset:
+    for batch in dataset(batch_size=10):
 
         pred_start_idxs, pred_end_idxs = model.predict(batch.input)
         start_idxs, end_idxs = batch.target
@@ -39,7 +39,7 @@ def qa_f1_score(model, dataset):
     # Details can be found in SQUAD paper
     score, total = 0, 0
 
-    for batch in dataset:
+    for batch in dataset(batch_size=10):
 
         pred_start_idxs, pred_end_idxs = model.predict(batch.input)
         start_idxs, end_idxs = batch.target
@@ -126,7 +126,7 @@ def f1_score(pred_tags, true_tags):
 def ner_precision_score(model, dataset):
 
     score, total = 0, 0
-    for batch in dataset:
+    for batch in dataset(batch_size=10):
 
         pred = model.predict(batch.input)
         # (batch_size, seq_len)
@@ -145,7 +145,7 @@ def ner_precision_score(model, dataset):
 # Similar to above
 def ner_recall_score(model, dataset):
     score, total = 0, 0
-    for batch in dataset:
+    for batch in dataset(batch_size=10):
         pred = model.predict(batch.input)
         for inp, target in zip(pred.tolist(), batch.target.tolist()):
             pred_tags = [batch.idx_to_tag(i) for i in inp]
@@ -157,7 +157,7 @@ def ner_recall_score(model, dataset):
 # Similar to above
 def ner_f1_score(model, dataset):
     score, total = 0, 0
-    for batch in dataset:
+    for batch in dataset(batch_size=10):
         pred = model.predict(batch.input)
         for inp, target in zip(pred.tolist(), batch.target.tolist()):
             pred_tags = [batch.idx_to_tag(i) for i in inp]

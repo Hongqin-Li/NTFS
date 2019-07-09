@@ -23,7 +23,7 @@ from data.thucnews.dataset_bert import Dataset as Dataset_thucnews
 from models.bert_models import BertForSequenceClassification, BertForSequenceLabeling, BertForQuestionAnswering
 from models.bert import BertConfig
 from trainer import Trainer
-from optim import AdamW
+from optim import WarmupOptimizer, AdamW
 from metrics import accuracy_score, qa_em_score, qa_f1_score, ner_precision_score, ner_recall_score, ner_f1_score
 
 def parse_dict(dict_path):
@@ -41,6 +41,7 @@ w2i, i2w = parse_dict('../bert_checkpoints/chinese-bert_chinese_wwm_L-12_H-768_A
 def word_to_idx(w):
     return w2i.get(w, w2i['[UNK]'])
 
+'''
 dataset_cmrc = Dataset_cmrc(train_file='data/cmrc/cmrc2018/squad-style-data/cmrc2018_train.json', 
                             dev_file='data/cmrc/cmrc2018/squad-style-data/cmrc2018_dev.json', 
                             test_file='data/cmrc/cmrc2018/squad-style-data/cmrc2018_trial.json', 
@@ -66,18 +67,21 @@ dataset_xnli = Dataset_xnli(train_file='data/xnli/XNLI-MT-1.0/multinli/multinli.
                             test_file='data/xnli/XNLI-1.0/xnli.test.tsv', 
                             word_to_idx=word_to_idx)
 
-
+'''
 dataset_chnsenticorp = Dataset_chnsenticorp(train_file='data/chnsenticorp/train.tsv', 
                                             dev_file='data/chnsenticorp/dev.tsv', 
                                             test_file='data/chnsenticorp/test.tsv', 
-                                            word_to_idx=word_to_idx)
+                                            word_to_idx=word_to_idx, 
+                                            max_seq_len=256)
 
 dataset_weibo = Dataset_weibo(raw_file='data/weibo/weibo_senti_100k.csv', 
                               train_file='data/weibo/train.tsv', 
                               dev_file='data/weibo/dev.tsv', 
                               test_file='data/weibo/test.tsv', 
-                              word_to_idx=word_to_idx)
+                              word_to_idx=word_to_idx, 
+                              max_seq_len=128)
 
+'''
 dataset_lcqmc = Dataset_lcqmc(train_file='data/lcqmc/train.txt', 
                             dev_file='data/lcqmc/dev.txt', 
                             test_file='data/lcqmc/test.txt', 
@@ -92,17 +96,22 @@ dataset_thucnews = Dataset_thucnews(train_file='data/thucnews/cnews/cnews.train.
                                     dev_file='data/thucnews/cnews/cnews.val.txt', 
                                     test_file='data/thucnews/cnews/cnews.test.txt', 
                                     word_to_idx=word_to_idx)
-
-# config = BertConfig(json_path='../bert_checkpoints/chinese-bert_chinese_wwm_L-12_H-768_A-12/bert_config.json')
-config = BertConfig(json_path='../bert_checkpoints/bert_toy_config.json')
+'''
+config = BertConfig(json_path='../bert_checkpoints/chinese-bert_chinese_wwm_L-12_H-768_A-12/bert_config.json')
+# config = BertConfig(json_path='../bert_checkpoints/chinese_L-12_H-768_A-12/bert_config.json')
+# config = BertConfig(json_path='../bert_checkpoints/bert_toy_config.json')
 
 
 def run_sequence_classification(dataset, save_path, batch_size=10):
 
-    # model = BertForSequenceClassification(num_classes=dataset.num_classes, config=config, tf_checkpoint_path='../bert_checkpoints/chinese-bert_chinese_wwm_L-12_H-768_A-12/bert_model.ckpt')
+    model = BertForSequenceClassification(num_classes=dataset.num_classes, config=config, tf_checkpoint_path='../bert_checkpoints/chinese-bert_chinese_wwm_L-12_H-768_A-12/bert_model.ckpt')
 
-    model = BertForSequenceClassification(num_classes=dataset.num_classes, config=config)
-    optimizer = AdamW(model.parameters(), lr=2e-5)
+    # model = BertForSequenceClassification(num_classes=dataset.num_classes, config=config)
+    optimizer = AdamW(filter(lambda p: p.requires_grad, model.parameters()), 
+                      lr=2e-5, 
+                      eps=1e-6)
+
+    optimizer = WarmupOptimizer(optimizer=optimizer, num_warmup_steps=300, lr=2e-5)
 
     if torch.cuda.is_available():
         model = model.cuda()
@@ -112,15 +121,16 @@ def run_sequence_classification(dataset, save_path, batch_size=10):
                       optimizer=optimizer, 
                       metrics=accuracy_score, 
                       dataset=dataset, 
-                      save_path=save_path)
+                      save_path=save_path, 
+                      num_save_steps=100)
 
     trainer.train(batch_size=batch_size)
 
 def run_sequence_labeling(dataset, save_path, batch_size=10):
 
-    # model = BertForSequenceClassification(num_classes=dataset.num_classes, config=config, tf_checkpoint_path='../bert_checkpoints/chinese-bert_chinese_wwm_L-12_H-768_A-12/bert_model.ckpt')
+    model = BertForSequenceLabeling(num_classes=dataset.num_classes, config=config, tf_checkpoint_path='../bert_checkpoints/chinese-bert_chinese_wwm_L-12_H-768_A-12/bert_model.ckpt')
 
-    model = BertForSequenceLabeling(num_classes=dataset.num_classes, config=config)
+    # model = BertForSequenceLabeling(num_classes=dataset.num_classes, config=config)
     optimizer = AdamW(model.parameters(), lr=2e-5)
 
     if torch.cuda.is_available():
@@ -139,10 +149,10 @@ def run_sequence_labeling(dataset, save_path, batch_size=10):
 
 def run_question_answering(dataset, save_path, batch_size=10):
     
-    # model = BertForSequenceClassification(config=config, tf_checkpoint_path='../bert_checkpoints/chinese-bert_chinese_wwm_L-12_H-768_A-12/bert_model.ckpt')
+    model = BertForQuestionAnswering(config=config, tf_checkpoint_path='../bert_checkpoints/chinese-bert_chinese_wwm_L-12_H-768_A-12/bert_model.ckpt')
 
-    model = BertForQuestionAnswering(config=config)
-    optimizer = AdamW(model.parameters(), lr=2e-5)
+    # model = BertForQuestionAnswering(config=config)
+    optimizer = AdamW(model.parameters(), lr=1e-5)
 
     if torch.cuda.is_available():
         model = model.cuda()
@@ -159,7 +169,7 @@ def run_question_answering(dataset, save_path, batch_size=10):
 
 
 if __name__ == '__main__':
+    run_sequence_classification(dataset_chnsenticorp, batch_size=10, save_path='checkpoints/chnsenticorp.pt')
 
-    pass
     
 

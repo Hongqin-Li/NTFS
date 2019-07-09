@@ -2,10 +2,12 @@ import torch
 
 class Trainer():
 
-    def __init__(self, model, optimizer, metrics, dataset, save_path):
+    def __init__(self, model, optimizer, metrics, dataset, save_path, num_save_steps=100):
         # metrics: function to compute accuracy for early-stop
 
         self.dataset = dataset
+
+        self.num_save_steps = num_save_steps
 
         self.model = model
         self.optimizer = optimizer
@@ -31,7 +33,11 @@ class Trainer():
             self.num_trained_samples = 0
             print ('No checkpoint found!')
 
+
     def save_checkpoint(self, path):
+
+        print ('Saving model...', end='')
+
         torch.save({
             'model': self.model.state_dict(),  
             'optimizer': self.optimizer.state_dict(),  
@@ -39,45 +45,60 @@ class Trainer():
             'num_trained_samples': self.num_trained_samples
         }, path)
 
+        print ('Finish.')
 
     def train(self, batch_size):
 
         self.load_checkpoint()
 
 
+        step = 0
+
+        stop_after_overfit = 10
+        cnt_overfit = 0
+
         while True:
 
-
             cnt = 0
+           
+            for batch in self.dataset.trainset(batch_size=batch_size, drop_last=True):
 
-            self.model.train()
-            for batch in self.dataset.trainset(batch_size=batch_size):
-
+                self.model.train()
                 self.model.zero_grad()
                 # NOTE Sequence labeling should consider mask !
                 loss = self.model.compute_loss(self.model(batch.input), batch.target)
                 loss.backward()
                 self.optimizer.step()
 
-                cnt += batch_size
-                self.save_checkpoint(self.save_path_tmp)
-
                 print (f'idx: {cnt}, loss: {loss}')
 
-            self.model.eval()
-            score = self.metrics(self.model, self.dataset.devset)
+                cnt += batch_size
+                step += 1
 
-            print (f'Epoch: {self.num_trained_samples // self.dataset.num_train_samples}, score: {score}')
+                if step >= self.num_save_steps: 
 
-            if score > self.best_score:
-                self.best_score = score
-                self.num_trained_samples += self.dataset.num_train_samples
-                self.save_checkpoint(self.save_path)
-               
-            # TODO still train for several epochs to find a better model
-            else:
-                print ('Terminate!')
-                return 
+
+                    self.model.eval()
+                    score = self.metrics(self.model, self.dataset.devset)
+
+                    print (f'score: {score}')
+
+                    if score > self.best_score:
+
+                        self.best_score = score
+                        self.num_trained_samples += step * batch_size
+                        self.save_checkpoint(self.save_path)
+                        cnt_overfit = 0
+
+                    else:
+                        cnt_overfit += 1
+                        if cnt_overfit >= stop_after_overfit:
+                            print ('Terminate!')
+                            return 
+
+                    step = 0
+            # print (f'Epoch: {self.num_trained_samples // self.dataset.num_train_samples}, score: {score}')
+
 
 
 

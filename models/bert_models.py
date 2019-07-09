@@ -33,8 +33,16 @@ class BertForSequenceClassification(nn.Module):
         if tf_checkpoint_path is not None:
             self.bert_model.from_tf_checkpoint(tf_checkpoint_path)
 
+        
         self.linear = nn.Linear(self.bert_model.hidden_size, num_classes)
         self.dropout = nn.Dropout(0.1)
+        
+
+        '''
+        for name, param in self.bert_model.named_parameters():
+            print (name, param)
+            input ()
+        '''
 
     def forward(self, inp):
 
