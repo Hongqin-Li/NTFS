@@ -105,6 +105,10 @@ class Dataset():
             test_lines = pos_lines[dev_end: test_end] + neg_lines[dev_end: test_end]
             train_lines = pos_lines[test_end:] + neg_lines[test_end:]
 
+            random.shuffle(dev_lines)
+            random.shuffle(test_lines)
+            random.shuffle(train_lines)
+
             with open(self.train_file, 'w') as f:
                 f.write('label\ttext\n')
                 for line in train_lines:
