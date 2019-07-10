@@ -9,7 +9,10 @@ class WarmupOptimizer():
         self.steps = 0
         self.num_warmup_steps = num_warmup_steps
         self.lr = lr
+        
+        # inherit
         self.state_dict = self.optimizer.state_dict
+        self.load_state_dict = self.optimizer.load_state_dict
    
     def step(self):
         self.steps += 1
