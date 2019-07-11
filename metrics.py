@@ -63,6 +63,31 @@ def qa_f1_score(model, dataset):
 
     return score / total
 
+
+def parse_padded_batch(padded_pred, padded_target, idx_to_tag):
+    # padded_pred:   (batch_size, seq_len)
+    # padded_target: (batch_size, seq_len)
+    
+    padding_idx = -1
+
+    pred = []
+    target = []
+
+    for padded_p, padded_t in zip(pred, target):
+        # both of shape (seq_len)
+
+        p, t = [], []
+
+        for pi, ti in zip(padded_p, padded_t):
+            if ti == padding_idx: continue
+            p.append(idx_to_tag(pi))
+            t.append(idx_to_tag(ti))
+
+        pred.append(p)
+        target.append(t)
+                
+    return pred, target
+
 def get_entries(tags):
     # tags: list of tags, e.g. ['O', 'B-PER', 'I-PER', 'B-ORG']
     # return: list of entries, each of which is a tuple of (catagory, start index, end index), e.g. [('PER', 1, 2), ('ORG', 3, 3)]
@@ -70,6 +95,12 @@ def get_entries(tags):
     entries = []
     current_catagory = ''
     start_idx = 0
+
+    # for nested list
+    if any(isinstance(s, list) for s in tags):
+        tags = [item for sublist in tags for item in sublist + ['O']]
+    print (tags)
+
 
     for i, tag in enumerate(tags + ['O']):
 
@@ -79,7 +110,7 @@ def get_entries(tags):
         
         # End of span
         if prefix != 'I' and current_catagory != '':
-            entries.append((curren_catagory, start_idx, i - 1))
+            entries.append((current_catagory, start_idx, i - 1))
             current_catagory = ''
 
         # A tag span can only start with B-xxx
@@ -88,87 +119,97 @@ def get_entries(tags):
             
     return entries
 
-def precision_score(pred_tags, true_tags):
+def ner_score(pred_tags, target_tags, score_type):
 
     pred_entries = set(get_entries(pred_tags))
-    true_entries = set(get_entries(true_tags))
+    target_entries = set(get_entries(target_tags))
 
-    num_correct = len(pred_entries & true_entries)
-    num_pred = len(pred_entries)
-
-    return num_correct / num_pred if num_pred > 0 else 0
-    
-def recall_score(pred_tags, true_tags):
-    
-    pred_entries = set(get_entries(pred_tags))
-    true_entries = set(get_entries(true_tags))
-
-    num_correct = len(pred_entries & true_entries)
-    num_true = len(true_entries)
-
-    return num_correct / num_true if num_true > 0 else 0
-
-def f1_score(pred_tags, true_tags):
-
-    pred_entries = set(get_entries(pred_tags))
-    true_entries = set(get_entries(true_tags))
-
-    num_correct = len(pred_entries & true_entries)
-    num_true = len(true_entries)
+    num_correct = len(pred_entries & target_entries)
+    num_target = len(target_entries)
     num_pred = len(pred_entries)
 
     precision = num_correct / num_pred if num_pred > 0 else 0
-    recall = num_correct / num_true if num_true > 0 else 0
+    recall = num_correct / num_target if num_target > 0 else 0
 
-    return 2 * precision * recall / (precision + recall) if precision + recall > 0 else 0
+    if score_type == 'precision':
+        return precision
+
+    elif score_type == 'recall':
+        return recall
+
+    elif score_type == 'f1':
+        return 2 * precision * recall / (precision + recall) if precision + recall > 0 else 0
+
+    else:
+        print (f'Warning: {score_type} not supported!')
 
 
 def ner_precision_score(model, dataset):
 
-    score, total = 0, 0
+    preds = []
+    targets = []
+
     for batch in dataset(batch_size=10):
 
         pred = model.predict(batch.input)
         # (batch_size, seq_len)
 
-        for inp, target in zip(pred.tolist(), batch.target.tolist()):
-            
-            # NOTE dataset should support this, including padding index
-            pred_tags = [batch.idx_to_tag(i) for i in inp]
-            true_tags = [batch.idx_to_tag(i) for i in target]
-            score += precision_score(pred_tags, true_tags)
+        pred, target = parse_padded_batch(pred, batch.target, batch.idx_to_tag)
 
-        total += pred.shape[0]
+        preds.append(pred)
+        targets.append(target)
 
-    return score / total
 
-# Similar to above
+    return ner_score(preds, targets, score_type='precision')
+
+
 def ner_recall_score(model, dataset):
-    score, total = 0, 0
-    for batch in dataset(batch_size=10):
-        pred = model.predict(batch.input)
-        for inp, target in zip(pred.tolist(), batch.target.tolist()):
-            pred_tags = [batch.idx_to_tag(i) for i in inp]
-            true_tags = [batch.idx_to_tag(i) for i in target]
-            score += recall_score(pred_tags, true_tags)
-        total += pred.shape[0]
-    return score / total
 
-# Similar to above
-def ner_f1_score(model, dataset):
-    score, total = 0, 0
+    preds = []
+    targets = []
+
     for batch in dataset(batch_size=10):
+
         pred = model.predict(batch.input)
-        for inp, target in zip(pred.tolist(), batch.target.tolist()):
-            pred_tags = [batch.idx_to_tag(i) for i in inp]
-            true_tags = [batch.idx_to_tag(i) for i in target]
-            score += f1_score(pred_tags, true_tags)
-        total += pred.shape[0]
-    return score / total
+        # (batch_size, seq_len)
+
+        pred, target = parse_padded_batch(pred, batch.target, batch.idx_to_tag)
+
+        preds.append(pred)
+        targets.append(target)
+
+
+    return ner_score(preds, targets, score_type='recall')
+
+
+def ner_f1_score(model, dataset):
+
+    preds = []
+    targets = []
+
+    for batch in dataset(batch_size=10):
+
+        pred = model.predict(batch.input)
+        # (batch_size, seq_len)
+
+        pred, target = parse_padded_batch(pred, batch.target, batch.idx_to_tag)
+
+        preds.append(pred)
+        targets.append(target)
+
+
+    return ner_score(preds, targets, score_type='f1')
 
 
 if __name__ == '__main__':  
-    pass
+    # Test
+    y_pred = [['O', 'O', 'B-MISC', 'I-MISC', 'I-MISC', 'I-MISC', 'O'], ['B-PER', 'I-PER', 'O']]
+    y_target = [['O', 'O', 'O', 'B-MISC', 'I-MISC', 'I-MISC', 'O'], ['B-PER', 'I-PER', 'O']]
+
+    print (ner_score(y_pred, y_target, score_type='precision'))
+    print (ner_score(y_pred, y_target, score_type='recall'))
+    print (ner_score(y_pred, y_target, score_type='f1'))
+
 
 
 
