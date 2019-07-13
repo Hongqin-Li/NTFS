@@ -15,7 +15,7 @@ def parse_sentence_pair(sent1, sent2, word_to_idx, max_seq_len):
     len1, len2 = len(sent1), len(sent2)
 
     if len1 + len2 > max_seq_len - 3:
-        print ('Warning: exceed max_seq_len')
+        # print ('Warning: exceed max_seq_len')
         # Weighted truncate
         len1 = int( len1 / (len1 + len2) * (max_seq_len - 3) )
         len2 = max_seq_len - 3 - len1
@@ -37,7 +37,8 @@ class Dataset():
 
     def __init__(self, train_file, dev_file, test_file, word_to_idx, max_seq_len=512, use_gpu=False):
         # word_to_idx: both are functions, whose input is a string and output an int
-        self.max_seq_len = 512
+        self.num_classes = 3
+        self.max_seq_len = max_seq_len
         self.use_gpu = use_gpu
 
         self.train_file = train_file
