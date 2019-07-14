@@ -164,12 +164,11 @@ class Dataset():
                                 print (f'doc[{len(doc)}]: {doc}\nquery[{len(quest)}]: {quest}')
                                 raise
 
-                            # print (f'raw_doc: {raw_doc}\ndoc: {doc}\nquery: {query}\nanswer: {doc[ans_start_idx: ans_end_idx + 1]}')
-                            # input ()
                             doc_offset = len(query) + 2 # +2 for CLS and SEP
-                            
-                            yield doc, query, doc_offset + ans_start_idx, doc_offset + ans_end_idx
-                            # start/end idx is the index in the whole query-doc string "[CLS] query [SEP] doc [SEP]"
+
+                            raw_seq = ['[CLS]'] + [w for w in query] + ['[SEP]'] + [w for w in doc] + ['[SEP]']
+                            # start/end idx is the index in the whole query-doc string "[CLS] query [SEP] doc [SEP]", i.e. raw_seq
+                            yield doc, query, doc_offset + ans_start_idx, doc_offset + ans_end_idx, raw_seq
 
    
     def sample_batches(self, file_path, batch_size=1, drop_last=False):
@@ -186,7 +185,7 @@ class Dataset():
         # Raw documents
         raw_doc_batch = [] # List of word list: ['[CLS]', query[0], ... , '[SEP]', doc[0], ..., '[SEP]']
 
-        for doc, query, si, ei in self.samples(file_path):
+        for doc, query, si, ei, raw_seq in self.samples(file_path):
 
             token_idxs, token_type_idxs, mask = parse_sentence_pair(query, doc, self.word_to_idx, self.max_seq_len)        
             # all (batch_size, seq_len)
@@ -196,8 +195,6 @@ class Dataset():
             mask = torch.LongTensor(mask)
             si = torch.LongTensor([si])
             ei = torch.LongTensor([ei])
-            raw_inp = ['[CLS]'] + [w for w in doc] + ['[SEP]'] + [w for w in query] + ['[SEP]']
-            assert len(raw_inp) <= self.max_seq_len
 
             if self.use_gpu:
                 token_idxs, token_type_idxs, mask, si, ei = token_idxs.cuda(), token_type_idxs.cuda(), mask.cuda(), si.cuda(), ei.cuda()
@@ -207,8 +204,7 @@ class Dataset():
             mask_batch.append(mask)
             start_idx_batch.append(si)
             end_idx_batch.append(ei)
-
-            raw_doc_batch.append(raw_inp)
+            raw_doc_batch.append(raw_seq)
 
             cnt += 1
 
