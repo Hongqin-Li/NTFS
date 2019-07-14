@@ -111,14 +111,18 @@ class BertForSequenceLabeling(nn.Module):
         # pred: (batch_size, seq_len, num_classes)
         # target: (batch_size, seq_len)
 
+        pred = pred[:, 1:-1, :] # ignore [CLS] and [SEP]
+
         # NOTE Dataset should have a target padding value of -1
         criterion = nn.CrossEntropyLoss(ignore_index=-1) # ignore padding
 
-        return criterion(pred, target)
+        return criterion(pred.contiguous().view(-1, self.num_classes), target.contiguous().view(-1))
 
     def predict(self, inp):
         x = self.forward(inp)
         # (batch_size, seq_len, num_classes)
+
+        x = x[:, 1:-1, :] # ignore [CLS] and [SEP]
 
         pred_labels = torch.argmax(F.softmax(x, dim=-1), dim=-1)
         # (batch_size, seq_len)
@@ -152,7 +156,7 @@ class BertForQuestionAnswering(nn.Module):
         position_idxs = get_position_idxs(token_idxs)
 
         sequence_output, _ = self.bert_model(token_idxs, position_idxs, token_type_idxs, masks)
-        # (batch_size, hidden_size)
+        # (batch_size, seq_len, hidden_size)
 
         # x = self.linear(self.dropout(sequence_output))
         x = self.linear(sequence_output)

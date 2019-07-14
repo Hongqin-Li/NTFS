@@ -278,7 +278,7 @@ class BertModel(nn.Module):
             token_type_idxs: (batch_size, seq_len), used for segment embedding, e.g. 0 and 1 for first and second segment(sentence piece) repectively
             masks: (batch_size, seq_len), 0 for masked word(i.e. padding words when training or masks when pretraining), 1 otherwise
         Return:
-            (batch_size, seq_len, hidden_size)
+            (batch_size, seq_len, hidden_size), (batch_size, hidden_size)
         
         Example:
             Assming our vocabulary is {'Merry': 1, 'Christmas': 2, 'Mr': 3, 'Lawrence': 4, '[CLS]': 100, '[SEP]': 101}, 
