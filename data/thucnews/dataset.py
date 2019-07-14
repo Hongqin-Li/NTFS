@@ -1,3 +1,5 @@
+import os
+import random
 import json
 import torch
 import torch.nn as nn
@@ -9,7 +11,7 @@ Batch = namedtuple('Batch', 'input target')
 
 class Dataset(): 
 
-    def __init__(self, train_file, dev_file, test_file, word_to_idx, use_gpu=False):
+    def __init__(self, raw_train_file, train_file, dev_file, test_file, word_to_idx, use_gpu=False):
         # word_to_idx/tag_to_idx: both are functions, whose input is a string and output an int
         self.num_classes = 10
         self.use_gpu = use_gpu
@@ -17,6 +19,9 @@ class Dataset():
         self.train_file = train_file
         self.dev_file = dev_file
         self.test_file = test_file
+
+        # Shuffle trainset
+        self.shuffle_trainset(raw_train_file, train_file)
 
         self.word_to_idx = word_to_idx
 
@@ -31,6 +36,21 @@ class Dataset():
         self.num_test_samples = 0
         for batch in self.testset(batch_size=1000):
             self.num_test_samples += batch[0].shape[0]
+
+    def shuffle_trainset(self, raw_file, out_file):
+
+        if os.path.exists(out_file):
+            print ('Trainset has been shuffled, do not shuffle.')
+            return 
+
+        lines = []
+        with open(raw_file, 'r') as f:
+            lines = f.readlines()
+            random.shuffle(lines)
+            with open(out_file, 'w') as f:
+                for line in lines:
+                    f.write(line)
+ 
 
     def trainset(self, batch_size=1, drop_last=False):
         for batch in self.sample_batches(self.train_file, batch_size=batch_size, drop_last=drop_last):
@@ -103,7 +123,8 @@ class Dataset():
 
 if __name__ == '__main__': 
     # Usage
-    train_file = 'cnews/cnews.train.txt'
+    raw_train_file = 'cnews/cnews.train.txt'
+    train_file = 'cnews/cnews.train.shuffled.txt'
     dev_file = 'cnews/cnews.val.txt'
     test_file = 'cnews/cnews.test.txt'
 
@@ -111,7 +132,7 @@ if __name__ == '__main__':
         w2i = {'当': 1, '希': 2}
         return w2i.get(w, 0)
 
-    dataset = Dataset(train_file=train_file, dev_file=dev_file, test_file=test_file, word_to_idx=word_to_idx)
+    dataset = Dataset(raw_train_file=raw_train_file, train_file=train_file, dev_file=dev_file, test_file=test_file, word_to_idx=word_to_idx)
 
     print (f'trainset: {dataset.num_train_samples}')
     print (f'devset: {dataset.num_dev_samples}')
