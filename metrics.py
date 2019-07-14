@@ -4,10 +4,10 @@ from collections import Counter
 
 # TODO test all functions below!
 
-def accuracy_score(model, dataset):
+def accuracy_score(model, dataset, batch_size=8):
 
     score, total = 0, 0
-    for batch in dataset(batch_size=10):
+    for batch in dataset(batch_size=batch_size):
 
         # NOTE model should support "predict" method
         pred = model.predict(batch.input) # (batch_size)
@@ -18,28 +18,28 @@ def accuracy_score(model, dataset):
      
     return score / total
 
-def qa_em_score(model, dataset):
+def qa_em_score(model, dataset, batch_size=8):
     # EM(Exact Match) Metrics for Question Answering tasks
     # EM: both start index and end index are identical to those of target
 
     score, total = 0, 0
-    for batch in dataset(batch_size=10):
+    for batch in dataset(batch_size=batch_size):
 
         pred_start_idxs, pred_end_idxs = model.predict(batch.input)
         start_idxs, end_idxs = batch.target
         # all of shape (batch_size)
 
-        score = torch.sum((pred_start_idxs == start_idxs) * (pred_end_idxs == end_idxs)).item()
+        score += torch.sum((pred_start_idxs == start_idxs) * (pred_end_idxs == end_idxs)).item()
         total += start_idxs.shape[0]
 
     return score / total
     
 
-def qa_f1_score(model, dataset):
+def qa_f1_score(model, dataset, batch_size=8):
     # Details can be found in SQUAD paper
     score, total = 0, 0
 
-    for batch in dataset(batch_size=10):
+    for batch in dataset(batch_size=batch_size):
 
         pred_start_idxs, pred_end_idxs = model.predict(batch.input)
         start_idxs, end_idxs = batch.target
@@ -64,16 +64,14 @@ def qa_f1_score(model, dataset):
     return score / total
 
 
-def parse_padded_batch(padded_pred, padded_target, idx_to_tag):
+def parse_padded_batch(padded_pred, padded_target, idx_to_tag, padding_idx=-1):
     # padded_pred:   (batch_size, seq_len)
     # padded_target: (batch_size, seq_len)
     
-    padding_idx = -1
-
     pred = []
     target = []
 
-    for padded_p, padded_t in zip(pred, target):
+    for padded_p, padded_t in zip(padded_pred, padded_target):
         # both of shape (seq_len)
 
         p, t = [], []
@@ -99,8 +97,6 @@ def get_entries(tags):
     # for nested list
     if any(isinstance(s, list) for s in tags):
         tags = [item for sublist in tags for item in sublist + ['O']]
-    print (tags)
-
 
     for i, tag in enumerate(tags + ['O']):
 
@@ -131,6 +127,8 @@ def ner_score(pred_tags, target_tags, score_type):
     precision = num_correct / num_pred if num_pred > 0 else 0
     recall = num_correct / num_target if num_target > 0 else 0
 
+    print (f'precision: {precision}, recall: {recall}')
+
     if score_type == 'precision':
         return precision
 
@@ -144,59 +142,57 @@ def ner_score(pred_tags, target_tags, score_type):
         print (f'Warning: {score_type} not supported!')
 
 
-def ner_precision_score(model, dataset):
+def ner_precision_score(model, dataset, batch_size=8):
 
     preds = []
     targets = []
 
-    for batch in dataset(batch_size=10):
+    for batch in dataset(batch_size=batch_size):
 
         pred = model.predict(batch.input)
         # (batch_size, seq_len)
 
         pred, target = parse_padded_batch(pred, batch.target, batch.idx_to_tag)
 
-        preds.append(pred)
-        targets.append(target)
+        preds += pred
+        targets += target
 
 
     return ner_score(preds, targets, score_type='precision')
 
 
-def ner_recall_score(model, dataset):
+def ner_recall_score(model, dataset, batch_size=8):
 
     preds = []
     targets = []
 
-    for batch in dataset(batch_size=10):
+    for batch in dataset(batch_size=batch_size):
 
         pred = model.predict(batch.input)
         # (batch_size, seq_len)
 
         pred, target = parse_padded_batch(pred, batch.target, batch.idx_to_tag)
 
-        preds.append(pred)
-        targets.append(target)
-
+        preds += pred
+        targets += target
 
     return ner_score(preds, targets, score_type='recall')
 
 
-def ner_f1_score(model, dataset):
+def ner_f1_score(model, dataset, batch_size=8):
 
     preds = []
     targets = []
 
-    for batch in dataset(batch_size=10):
+    for batch in dataset(batch_size=batch_size):
 
         pred = model.predict(batch.input)
         # (batch_size, seq_len)
 
         pred, target = parse_padded_batch(pred, batch.target, batch.idx_to_tag)
 
-        preds.append(pred)
-        targets.append(target)
-
+        preds += pred
+        targets += target
 
     return ner_score(preds, targets, score_type='f1')
 
