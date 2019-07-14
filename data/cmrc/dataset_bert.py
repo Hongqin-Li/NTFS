@@ -81,15 +81,7 @@ class Dataset():
         for batch in self.sample_batches(self.test_file, batch_size=batch_size, drop_last=drop_last):
             yield batch
    
-    def str_to_tensor(self, s):
-        # s: string
-        # return: 1-d long tensor of shape (seq_len)
-
-        # TODO prune long str
-        return torch.LongTensor([self.word_to_idx(c) for c in s])
-    
     def pad_sequence(self, s):
-        # TODO pad to 512?
         return nn.utils.rnn.pad_sequence(s, batch_first=True)
 
     def samples(self, file_path):
@@ -147,7 +139,7 @@ class Dataset():
                                 truncated_doc_start_idx = max(0, middle_idx - max_doc_len // 2)
                                 truncated_doc_end_idx = min(raw_doc_len - 1, truncated_doc_start_idx + max_doc_len - 1)
 
-                                # Expect to find the "perfect" doc span that has whole sentences
+                                # Expect to find the "perfect" doc span that can cover the whole answer span
                                 if truncated_doc_start_idx != 0:
                                     for i in range(truncated_doc_start_idx, ans_start_idx + 1):
                                         if is_punctuation(doc[i]) and i + 1 <= ans_start_idx: 
@@ -174,8 +166,10 @@ class Dataset():
 
                             # print (f'raw_doc: {raw_doc}\ndoc: {doc}\nquery: {query}\nanswer: {doc[ans_start_idx: ans_end_idx + 1]}')
                             # input ()
+                            doc_offset = len(query) + 2 # +2 for CLS and SEP
                             
-                            yield doc, query, ans_start_idx, ans_end_idx
+                            yield doc, query, doc_offset + ans_start_idx, doc_offset + ans_end_idx
+                            # start/end idx is the index in the whole query-doc string "[CLS] query [SEP] doc [SEP]"
 
    
     def sample_batches(self, file_path, batch_size=1, drop_last=False):
@@ -190,7 +184,7 @@ class Dataset():
         end_idx_batch = [] # (batch_size)
 
         # Raw documents
-        raw_doc_batch = [] # List of string: [doc_{1}, ..., doc_{i}, ..., doc_{batch_size}]
+        raw_doc_batch = [] # List of word list: ['[CLS]', query[0], ... , '[SEP]', doc[0], ..., '[SEP]']
 
         for doc, query, si, ei in self.samples(file_path):
 
@@ -202,6 +196,8 @@ class Dataset():
             mask = torch.LongTensor(mask)
             si = torch.LongTensor([si])
             ei = torch.LongTensor([ei])
+            raw_inp = ['[CLS]'] + [w for w in doc] + ['[SEP]'] + [w for w in query] + ['[SEP]']
+            assert len(raw_inp) <= self.max_seq_len
 
             if self.use_gpu:
                 token_idxs, token_type_idxs, mask, si, ei = token_idxs.cuda(), token_type_idxs.cuda(), mask.cuda(), si.cuda(), ei.cuda()
@@ -212,7 +208,7 @@ class Dataset():
             start_idx_batch.append(si)
             end_idx_batch.append(ei)
 
-            raw_doc_batch.append(doc)
+            raw_doc_batch.append(raw_inp)
 
             cnt += 1
 
