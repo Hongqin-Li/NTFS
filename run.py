@@ -33,13 +33,6 @@ w2i, i2w = parse_dict('../bert_checkpoints/chinese-bert_chinese_wwm_L-12_H-768_A
 def word_to_idx(w):
     return w2i.get(w, w2i['[UNK]'])
 
-'''
-
-
-
-
-
-'''
 
 config = BertConfig(json_path='../bert_checkpoints/chinese-bert_chinese_wwm_L-12_H-768_A-12/bert_config.json')
 # config = BertConfig(json_path='../bert_checkpoints/chinese_L-12_H-768_A-12/bert_config.json')
