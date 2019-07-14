@@ -133,6 +133,9 @@ class Dataset():
             token_idxs = torch.LongTensor(token_idxs)
             token_type_idxs = torch.LongTensor(token_type_idxs)
             mask = torch.LongTensor(mask)
+
+            if len(tags) > self.max_seq_len - 2: tags = tags[: self.max_seq_len-2]
+
             tags = self.tags_to_tensor(tags)
 
             if self.use_gpu:
