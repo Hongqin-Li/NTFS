@@ -18,6 +18,18 @@ def accuracy_score(model, dataset, batch_size=8):
      
     return score / total
 
+
+def remove_punctuation(raw_words):
+    # raw_words: list of string(word), e.g. ['a', 'cat', ...]
+
+    words = []
+    punctuations = ['-',':','_','*','^','/','\\','~','`','+','=', '，','。','：','？','！','“','”','；','’','《','》','……','·','、','「','」','（','）','－','～','『','』']
+    for w in raw_words:
+        if w not in punctuations:
+            words.append(w)
+            
+    return ''.join(words)
+
 def qa_em_score(model, dataset, batch_size=8):
     # EM(Exact Match) Metrics for Question Answering tasks
     # EM: both start index and end index are identical to those of target
@@ -28,8 +40,18 @@ def qa_em_score(model, dataset, batch_size=8):
         pred_start_idxs, pred_end_idxs = model.predict(batch.input)
         start_idxs, end_idxs = batch.target
         # all of shape (batch_size)
+        raw_seqs = batch.raw_documents
+        # raw_seqs = batch.raw_sequences
+        # TODO change API
 
-        score += torch.sum((pred_start_idxs == start_idxs) * (pred_end_idxs == end_idxs)).item()
+        for si, ei, psi, pei, seq in zip(start_idxs.tolist(), end_idxs.tolist(), pred_start_idxs.tolist(), pred_end_idxs.tolist(), raw_seqs):
+
+            ans = remove_punctuation(seq[si: ei + 1])
+            pred_ans = remove_punctuation(seq[psi: pei + 1])
+           
+            if ans == pred_ans: score += 1
+            # score += torch.sum((pred_start_idxs == start_idxs) * (pred_end_idxs == end_idxs)).item()
+
         total += start_idxs.shape[0]
 
     return score / total
@@ -46,12 +68,13 @@ def qa_f1_score(model, dataset, batch_size=8):
         # all of shape (batch_size)
         
         # NOTE dataset should support this
-        raw_docs = batch.raw_documents
-        # [doc1, doc2, ...]: list of raw document strings, used to get the original answer string by predicted answer span 
+        raw_seqs = batch.raw_documents
+        # raw_seqs = batch.raw_sequences
+        # TODO change API
 
-        for si, ei, psi, pei, doc in zip(start_idxs.tolist(), end_idxs.tolist(), pred_start_idxs.tolist(), pred_end_idxs.tolist(), raw_docs):
-            ans = [word for word in doc[si: ei + 1]]
-            pred_ans = [word for word in doc[psi: pei + 1]]
+        for si, ei, psi, pei, seq in zip(start_idxs.tolist(), end_idxs.tolist(), pred_start_idxs.tolist(), pred_end_idxs.tolist(), raw_seqs):
+            ans = remove_punctuation(seq[si: ei + 1])
+            pred_ans = remove_punctuation(seq[psi: pei + 1])
 
             num_same = sum((Counter(ans) & Counter(pred_ans)).values())
             precision = num_same / len(pred_ans) if len(pred_ans) > 0 else 0
