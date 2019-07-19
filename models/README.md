@@ -4,13 +4,13 @@ A model should be able to compute loss between inputs and outputs, make predicti
 
 ```python
 def Model():
-	def __init__(self):
+    def __init__(self):
         pass
     def forward(self, x):
        	pass
     def compute_loss(self, pred, target):
         pass
-	def predict(self, x):
+    def predict(self, x):
         pass
 ```
 
