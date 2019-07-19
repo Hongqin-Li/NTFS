@@ -50,12 +50,14 @@ class Trainer():
 
         print ('Finish.')
 
-    def train(self, batch_size, mini_batch_size=8):
+    def train(self, batch_size, mini_batch_size=None):
+
+        if mini_batch_size is None: mini_batch_size = batch_size
 
         try:
             assert batch_size % mini_batch_size == 0
         except: 
-            print ('Please set batch size to a multiple of 8 to enable accumulated gradient!')
+            print ('Please set batch size to a multiple of mini-batch size to enable accumulated gradient!')
             raise
         
         accumulation_steps = batch_size // mini_batch_size
