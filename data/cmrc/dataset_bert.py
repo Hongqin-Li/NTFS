@@ -156,6 +156,10 @@ class Dataset():
                                 ans_start_idx -= truncated_doc_start_idx 
                                 ans_end_idx -= truncated_doc_start_idx
 
+                            # Truncate answer
+                            ans_start_idx = max(0, ans_start_idx)
+                            ans_end_idx = min(len(doc) - 1, ans_end_idx)
+
                             try:
                                 assert 0 <= ans_start_idx <= ans_end_idx < len(doc)
                                 assert len(doc) + len(query) + 3 <= self.max_seq_len
