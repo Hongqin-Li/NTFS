@@ -27,7 +27,7 @@ Also a naive framework for NLP.
   - [x] [People Daily](https://github.com/ProHiryu/bert-chinese-ner/tree/master/data): trainset and devset
   - [x] [MSRA-NER](<https://github.com/OYE93/Chinese-NLP-Corpus>): trainset and testset (how to train? no devset)
 - NLI: 
-  - [x] [XNLI](https://github.com/facebookresearch/XNLI): testset size not matched, mine is 5k, but the paper only get 2.5k
+  - [x] [XNLI](https://github.com/facebookresearch/XNLI): testset size should be 5k, the paper is wrong, see [here](https://github.com/ymcui/Chinese-BERT-wwm/issues/1)
 - SC: , two-class sentence classification, remove stopwords?
   - [x] [ChnSentiCorp](https://github.com/pengming617/bert_classification/), [Sina Weibo](https://github.com/SophonPlus/ChineseNlpCorpus/)
 - SPM: 
@@ -35,3 +35,15 @@ Also a naive framework for NLP.
   - [x] [LCQMC](http://icrc.hitsz.edu.cn/info/1037/1146.htm), [BQ Corpus](http://icrc.hitsz.edu.cn/info/1037/1162.htm)
 - DC: ten-class classification, remove stopwords?
   - [x] [THUCNews](https://github.com/gaussic/text-classification-cnn-rnn)
+
+
+
+
+
+Checked
+
+- CMRC(63, baseline of cmrc, but different from paper??), DRCD
+
+- people_daily, msra(lr=4e-5, 92.8)
+
+- xnli, chnsenticorp, weibo, lcqmc, bq corpus, thucnews
