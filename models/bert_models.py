@@ -2,8 +2,6 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from .bert import BertModel, BertConfig
-
 
 def get_position_idxs(token_idxs):
 
@@ -24,16 +22,12 @@ def get_position_idxs(token_idxs):
 
 class BertForSequenceClassification(nn.Module):
 
-    def __init__(self, num_classes, config, tf_checkpoint_path=None):
+    def __init__(self, num_classes, bert):
         super(BertForSequenceClassification, self).__init__()
 
         self.num_classes = num_classes
-        self.bert_model = BertModel(config)
+        self.bert_model = bert
 
-        if tf_checkpoint_path is not None:
-            self.bert_model.from_tf_checkpoint(tf_checkpoint_path)
-
-        
         self.linear = nn.Linear(self.bert_model.hidden_size, num_classes)
         self.dropout = nn.Dropout(0.1)
         
@@ -78,15 +72,11 @@ class BertForSequenceClassification(nn.Module):
 
 class BertForSequenceLabeling(nn.Module):
 
-    def __init__(self, num_classes, config, tf_checkpoint_path=None):
+    def __init__(self, num_classes, bert):
         super(BertForSequenceLabeling, self).__init__()
 
         self.num_classes = num_classes
-        self.bert_model = BertModel(config)
-
-        if tf_checkpoint_path is not None:
-            self.bert_model.from_tf_checkpoint(tf_checkpoint_path)
-
+        self.bert_model = bert
         self.linear = nn.Linear(self.bert_model.hidden_size, num_classes)
         self.dropout = nn.Dropout(0.1)
 
@@ -131,14 +121,10 @@ class BertForSequenceLabeling(nn.Module):
 
 class BertForQuestionAnswering(nn.Module):
 
-    def __init__(self, config, tf_checkpoint_path=None):
+    def __init__(self, bert):
         super(BertForQuestionAnswering, self).__init__()
 
-        self.bert_model = BertModel(config)
-
-        if tf_checkpoint_path is not None:
-            self.bert_model.from_tf_checkpoint(tf_checkpoint_path)
-
+        self.bert_model = bert
         self.linear = nn.Linear(self.bert_model.hidden_size, 2)
 
         # NOTE QA-bert has no dropout in official implementation?
@@ -183,12 +169,17 @@ class BertForQuestionAnswering(nn.Module):
 
 if __name__ == '__main__':
 
-     # Usage
-    config = BertConfig(json_path='../../bert_checkpoints/chinese-bert_chinese_wwm_L-12_H-768_A-12/bert_config.json')
+    from bert import BertModel, BertConfig
+    from albert import AlbertModel
+    # Usage
+    # config = BertConfig(json_path='../../bert_checkpoints/chinese-bert_chinese_wwm_L-12_H-768_A-12/bert_config.json')
+    # bert_model = BertModel(config)
+    config = BertConfig(json_path='../checkpoints/albert_tiny_zh/albert_config_tiny.json')
+    bert_model = AlbertModel(config, tf_checkpoint_path='../checkpoints/albert_tiny_zh/albert_model.ckpt')
 
-    model_sc = BertForSequenceClassification(num_classes=5, config=config, tf_checkpoint_path='../../bert_checkpoints/chinese-bert_chinese_wwm_L-12_H-768_A-12/bert_model.ckpt')
-    model_sl = BertForSequenceLabeling(num_classes=5, config=config, tf_checkpoint_path='../../bert_checkpoints/chinese-bert_chinese_wwm_L-12_H-768_A-12/bert_model.ckpt')
-    model_qa = BertForQuestionAnswering(config=config, tf_checkpoint_path='../../bert_checkpoints/chinese-bert_chinese_wwm_L-12_H-768_A-12/bert_model.ckpt')
+    model_sc = BertForSequenceClassification(num_classes=5, bert=bert_model)
+    model_sl = BertForSequenceLabeling(num_classes=5, bert=bert_model)
+    model_qa = BertForQuestionAnswering(bert=bert_model)
 
     token_idxs = torch.LongTensor([[100, 1, 2, 101, 3, 4, 101]])
     token_type_idxs = torch.LongTensor([[ 0 ,  0 ,  0 ,  0 ,  1 ,  1 ,  1 ]])

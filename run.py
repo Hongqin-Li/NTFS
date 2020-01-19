@@ -12,11 +12,16 @@ from data.lcqmc.dataset_bert import Dataset as Dataset_lcqmc
 from data.bq_corpus.dataset_bert import Dataset as Dataset_bqcorpus
 from data.thucnews.dataset_bert import Dataset as Dataset_thucnews
 
+from models.albert import AlbertModel
 from models.bert_models import BertForSequenceClassification, BertForSequenceLabeling, BertForQuestionAnswering
 from models.bert import BertConfig
 from trainer import Trainer
 from optim import WarmupOptimizer, AdamW
 from metrics import accuracy_score, qa_em_score, qa_f1_score, ner_precision_score, ner_recall_score, ner_f1_score
+
+
+config = BertConfig(json_path='./checkpoints/albert_tiny_zh/albert_config_tiny.json')
+bert_model = AlbertModel(config, tf_checkpoint_path='./checkpoints/albert_tiny_zh/albert_model.ckpt')
 
 def parse_dict(dict_path):
     w2i, i2w = {}, {}
@@ -27,16 +32,11 @@ def parse_dict(dict_path):
             w2i[w] = i 
             i2w[i] = w
     return w2i, i2w
-
-w2i, i2w = parse_dict('../bert_checkpoints/chinese-bert_chinese_wwm_L-12_H-768_A-12/vocab.txt')
+w2i, i2w = parse_dict('./checkpoints/albert_tiny_zh/vocab.txt')
 
 def word_to_idx(w):
     return w2i.get(w, w2i['[UNK]'])
 
-
-config = BertConfig(json_path='../bert_checkpoints/chinese-bert_chinese_wwm_L-12_H-768_A-12/bert_config.json')
-# config = BertConfig(json_path='../bert_checkpoints/chinese_L-12_H-768_A-12/bert_config.json')
-# config = BertConfig(json_path='../bert_checkpoints/bert_toy_config.json')
 
 def run_sequence_classification(dataset, save_path, batch_size, lr, epochs=3, warmup_portion=0.1, num_save_steps=None, mini_batch_size=8):
 
@@ -46,7 +46,7 @@ def run_sequence_classification(dataset, save_path, batch_size, lr, epochs=3, wa
     print (f'[Warmup steps] {num_warmup_steps}')
     print (f'[Learing Rate] {lr}')
 
-    model = BertForSequenceClassification(num_classes=dataset.num_classes, config=config, tf_checkpoint_path='../bert_checkpoints/chinese-bert_chinese_wwm_L-12_H-768_A-12/bert_model.ckpt')
+    model = BertForSequenceClassification(num_classes=dataset.num_classes, bert=bert_model)
     # model = BertForSequenceClassification(num_classes=dataset.num_classes, config=config)
 
     optimizer = AdamW(filter(lambda p: p.requires_grad, model.parameters()), 
@@ -76,8 +76,7 @@ def run_sequence_labeling(dataset, save_path, batch_size, lr, epochs=3, warmup_p
     print (f'[warmup steps] {num_warmup_steps}')
     print (f'[learing rate] {lr}')
 
-    model = BertForSequenceLabeling(num_classes=dataset.num_classes, config=config, tf_checkpoint_path='../bert_checkpoints/chinese-bert_chinese_wwm_L-12_H-768_A-12/bert_model.ckpt')
-    # model = bertforsequenceClassification(num_classes=dataset.num_classes, config=config)
+    model = BertForSequenceLabeling(num_classes=dataset.num_classes, bert=bert_model)
 
     optimizer = AdamW(filter(lambda p: p.requires_grad, model.parameters()), 
                       lr=lr, 
@@ -107,8 +106,7 @@ def run_question_answering(dataset, save_path, batch_size, lr, epochs=3, warmup_
     print (f'[Warmup steps] {num_warmup_steps}')
     print (f'[Learing Rate] {lr}')
 
-    model = BertForQuestionAnswering(config=config, tf_checkpoint_path='../bert_checkpoints/chinese-bert_chinese_wwm_L-12_H-768_A-12/bert_model.ckpt')
-    # model = BertForSequenceClassification(num_classes=dataset.num_classes, config=config)
+    model = BertForQuestionAnswering(config=config, bert=bert_model)
 
     optimizer = AdamW(filter(lambda p: p.requires_grad, model.parameters()), 
                       lr=lr, 
@@ -148,7 +146,7 @@ if __name__ == '__main__':
     # mini_batch_size = int(args.mini_batch_size)
     lr = float(args.learning_rate)
 
-    torch.cuda.set_device(device)
+    # torch.cuda.set_device(device)
 
     save_path = f'checkpoints/{task}_lr{lr}_b{batch_size}_{device}.pt'
 
@@ -226,13 +224,13 @@ if __name__ == '__main__':
     # OK
     elif task == 'lcqmc':
 
-        dataset = Dataset_lcqmc(train_file='data/lcqmc/train.txt', 
-                                dev_file='data/lcqmc/dev.txt', 
-                                test_file='data/lcqmc/test.txt', 
+        dataset = Dataset_lcqmc(train_file='data/lcqmc/train.tsv', 
+                                dev_file='data/lcqmc/dev.tsv', 
+                                test_file='data/lcqmc/test.tsv', 
                                 word_to_idx=word_to_idx, 
                                 max_seq_len=128)
 
-        run_sequence_classification(dataset, batch_size=batch_size, lr=lr, epochs=2, save_path=save_path, num_save_steps=100)
+        run_sequence_classification(dataset, batch_size=batch_size, lr=lr, epochs=2, save_path=save_path, num_save_steps=1000)
 
     # OK
     elif task == 'bq_corpus' or task == 'bqcorpus':
