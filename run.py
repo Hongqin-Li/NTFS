@@ -14,14 +14,12 @@ from data.thucnews.dataset_bert import Dataset as Dataset_thucnews
 
 from models.albert import AlbertModel
 from models.bert_models import BertForSequenceClassification, BertForSequenceLabeling, BertForQuestionAnswering
-from models.bert import BertConfig
+from models.bert import BertModel, BertConfig
 from trainer import Trainer
 from optim import WarmupOptimizer, AdamW
 from metrics import accuracy_score, qa_em_score, qa_f1_score, ner_precision_score, ner_recall_score, ner_f1_score
 
 
-config = BertConfig(json_path='./checkpoints/albert_tiny_zh/albert_config_tiny.json')
-bert_model = AlbertModel(config, tf_checkpoint_path='./checkpoints/albert_tiny_zh/albert_model.ckpt')
 
 def parse_dict(dict_path):
     w2i, i2w = {}, {}
@@ -32,7 +30,11 @@ def parse_dict(dict_path):
             w2i[w] = i 
             i2w[i] = w
     return w2i, i2w
-w2i, i2w = parse_dict('./checkpoints/albert_tiny_zh/vocab.txt')
+
+pretrained_dir = "/mnt/d/Workspace/nlp/bert_checkpoints/uncased_L-12_H-768_A-12/"
+config = BertConfig(json_path=pretrained_dir+'bert_config.json')
+bert_model = BertModel(config, tf_checkpoint_path=pretrained_dir+"bert_model.ckpt")
+w2i, i2w = parse_dict(pretrained_dir+'vocab.txt')
 
 def word_to_idx(w):
     return w2i.get(w, w2i['[UNK]'])
@@ -256,5 +258,9 @@ if __name__ == '__main__':
         # mini-batch 1 to prevent OOM
         run_sequence_classification(dataset, batch_size=batch_size, lr=lr, epochs=2, save_path=save_path, num_save_steps=100, mini_batch_size=1)
         
+    elif task == "test":
+        from data.test.dataset_bert import Dataset as Dataset_test
+        dataset = Dataset_test(train_file="data/test/train.tsv", dev_file="data/test/dev.tsv", test_file="data/test/test.tsv", word_to_idx=word_to_idx, max_seq_len=512)
+        run_sequence_classification(dataset, batch_size=batch_size, lr=lr, epochs=2, save_path=save_path, num_save_steps=100, mini_batch_size=1)
     
 
